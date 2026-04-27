@@ -1,0 +1,50 @@
+# ── Secretos — NUNCA commitear ────────────────────────────────────────────────
+api/keys.json          # API keys reales — usar keys.json.example como plantilla
+*.env
+.env.*
+secrets/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# ── Entornos virtuales ────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+spark_job_env/
+*.tar.gz            # venv empaquetados con venv-pack
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Spark / Java ─────────────────────────────────────────────────────────────
+derby.log
+metastore_db/
+spark-warehouse/
+*.jar
+
+# ── Logs y datos temporales ───────────────────────────────────────────────────
+*.log
+logs/
+tmp/
+temp/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

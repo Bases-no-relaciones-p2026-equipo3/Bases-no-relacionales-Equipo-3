@@ -1,0 +1,8 @@
+{
+  "comentario": "Elimina esta línea antes de usar. Genera keys con: python -c \"import secrets; print('sk-' + secrets.token_urlsafe(24))\"",
+  "andre":   "",
+  "irene":  "",
+  "victor": "",
+  "fernanda": "",
+  "regina": ""
+}

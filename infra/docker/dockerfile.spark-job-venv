@@ -1,0 +1,20 @@
+# Use the previously generated spark-jupyter image as the base
+FROM spark-jupyter:3.5.7-scala2.12-java17-python3-ubuntu
+
+# Create virtual env for spark jobs
+# El venv se empaqueta con venv-pack para distribuirlo a los workers
+RUN mkdir -p /opt/spark/venv-build && \
+        cd /opt/spark/venv-build && \
+        python3 -m venv --copies spark_job_env && \
+        /opt/spark/venv-build/spark_job_env/bin/pip install \
+            venv-pack \
+            pandas \
+            pyarrow \
+            faker \
+            faker-commerce \
+            mimesis \
+            # ── Cassandra ────────────────────────────────────────────────
+            cassandra-driver \
+            # ── Neo4j ────────────────────────────────────────────────────
+            neo4j && \
+        /opt/spark/venv-build/spark_job_env/bin/venv-pack -p spark_job_env -o spark_job_env.tar.gz
