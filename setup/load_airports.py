@@ -25,7 +25,7 @@ from cassandra.policies import RetryPolicy, RoundRobinPolicy
 from cassandra.query import BatchStatement
 
 # ── Config ────────────────────────────────────────────────────────────────────
-CASSANDRA_NODE_IPS = ["10.15.20.18", "10.15.20.18", "10.15.20.18"]
+CASSANDRA_NODE_IPS = ["localhost", "localhost", "localhost"]
 CASSANDRA_PORT     = 9041
 CASSANDRA_USER     = "cassandra"
 CASSANDRA_PASSWORD = "cassandra"

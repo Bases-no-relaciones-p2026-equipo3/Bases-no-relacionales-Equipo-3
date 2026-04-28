@@ -31,7 +31,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-NEO4J_URI = "bolt://10.15.20.X:7687"   # reemplaza X con la IP real
+#NEO4J_URI = "bolt://10.15.20.X:7687"   # reemplaza X con la IP real
+NEO4J_URI = "bolt://localhost:7687"  # debe decir esto
 NEO4J_USER     = "neo4j"
 NEO4J_PASSWORD = "password"
 NEO4J_DATABASE = "neo4j"

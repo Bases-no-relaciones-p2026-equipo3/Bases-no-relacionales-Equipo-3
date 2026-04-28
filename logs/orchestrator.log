@@ -1,0 +1,17 @@
+2026-04-28 17:19:18,547  INFO      orchestrator — ============================================================
+2026-04-28 17:19:18,548  INFO      orchestrator — OpenSky Pipeline Orchestrator arrancando...
+2026-04-28 17:19:18,549  INFO      orchestrator —   Ingesta script : C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py
+2026-04-28 17:19:18,549  INFO      orchestrator —   Spark script   : C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\procesamiento\cassandra_to_neo4j_spark.py
+2026-04-28 17:19:18,550  INFO      orchestrator —   Intervalo Spark: 5 min
+2026-04-28 17:19:18,550  INFO      orchestrator —   Logs           : C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\logs/
+2026-04-28 17:19:18,551  INFO      orchestrator — ============================================================
+2026-04-28 17:19:18,553  INFO      orchestrator — Iniciando ingesta desde C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py
+2026-04-28 17:19:18,554  INFO      orchestrator — Loop Spark iniciado. Intervalo: 5 min.
+2026-04-28 17:19:18,554  INFO      orchestrator — Esperando 5 min antes del primer job Spark...
+2026-04-28 17:19:18,580  INFO      orchestrator — Ingesta PID 25400 corriendo.
+2026-04-28 17:24:18,512  INFO      orchestrator — [2026-04-28 23:24:18 UTC] Lanzando job Spark...
+2026-04-28 17:24:18,519  ERROR     orchestrator — 'spark-submit' no encontrado. Verifica que Spark esté instalado y en el PATH.
+2026-04-28 17:24:18,519  INFO      orchestrator — Próximo job Spark en 5 min.
+2026-04-28 17:27:07,224  INFO      orchestrator — Ctrl+C recibido — deteniendo procesos...
+2026-04-28 17:27:08,647  INFO      orchestrator — Ingesta terminó normalmente.
+2026-04-28 17:27:08,650  INFO      orchestrator — Pipeline detenido limpiamente.

@@ -43,8 +43,8 @@ OPENSKY_CLIENT_ID     = "ric78-api-client"
 OPENSKY_CLIENT_SECRET = "2qQQJF4zlMd9cqBqgLMYy9A9o13zjTdU"
 
 # ── Cassandra (red WireGuard 10.15.20.x) ─────────────────────────────────────
-CASSANDRA_NODE_IPS       = ["10.15.20.18", "10.15.20.18", "10.15.20.18"]
-CASSANDRA_NODE_RPC_PORTS = [9041, 9042, 9043]
+CASSANDRA_NODE_IPS = ["localhost", "localhost", "localhost"]
+CASSANDRA_NODE_RPC_PORTS = [9041, 9041, 9041]
 CASSANDRA_USER           = "cassandra"
 CASSANDRA_PASSWORD       = "cassandra"
 
@@ -68,7 +68,7 @@ OPENSKY_START_FROM_SCRATCH = False
 BOUNDING_BOX = None
 
 # ── Tamaño de batch para inserciones ─────────────────────────────────────────
-CASSANDRA_BATCH_SIZE = 50
+CASSANDRA_BATCH_SIZE = 10
 
 # ── Resiliencia ───────────────────────────────────────────────────────────────
 MAX_CONSECUTIVE_ERRORS = 5

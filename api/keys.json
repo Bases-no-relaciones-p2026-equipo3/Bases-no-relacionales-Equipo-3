@@ -1,8 +1,7 @@
 {
-  "comentario": "Elimina esta línea antes de usar. Genera keys con: python -c \"import secrets; print('sk-' + secrets.token_urlsafe(24))\"",
-  "andre":   "",
-  "irene":  "",
-  "victor": "",
-  "fernanda": "",
-  "regina": ""
+  "andre":   "sk-8tAqOaIYp7An_08A0rDKlwlT8jwNKNEP",
+  "irene":  "sk-RX-6DHASBqeiUVgUuR_E0zK-W96xwtQJ",
+  "victor": "sk-SLL3HAGlVMNZASdxlrXS_EsjYYkPNZ5U",
+  "fernanda": "sk-HHeu_OGPg2smTEoGU21yxuqBUUvtd3Ly",
+  "regina": "sk-9zUaDuWpgvzrpFN5JuKgdaqyCORps4yL"
 }
