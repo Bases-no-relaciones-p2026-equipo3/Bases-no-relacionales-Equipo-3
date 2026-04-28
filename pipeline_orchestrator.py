@@ -2,49 +2,77 @@
 pipeline_orchestrator.py
 ─────────────────────────
 Punto de entrada del sistema distribuido OpenSky.
-
-Lanza en paralelo dos procesos:
-  1. Ingesta continua  — exporta opensky_to_cassandra.ipynb como script y lo corre
-  2. Procesamiento     — ejecuta cassandra_to_neo4j_spark.py cada SPARK_INTERVAL_MIN minutos
-
+ 
+Al iniciar, borra automáticamente:
+  - Cassandra: state_vectors y flight_events (evita saturar RAM entre ejecuciones)
+  - Neo4j: todos los nodos y relaciones (grafo limpio)
+  - Los aeropuertos en Cassandra se conservan (datos de referencia estáticos)
+ 
+Durante la ejecución:
+  - Cassandra acumula snapshots continuamente (necesario para que Spark
+    compare estados consecutivos y detecte despegues/aterrizajes)
+  - Spark lee los snapshots acumulados y reconstruye Neo4j cada 5 min
+ 
 Uso:
     python pipeline_orchestrator.py
-
+ 
 Detener:
-    Ctrl+C  (ambos procesos se detienen limpiamente)
-
-Notas:
-  - La ingesta corre de forma continua (loop infinito con POLL_INTERVAL_SECONDS=20).
-  - El job de Spark corre cada SPARK_INTERVAL_MIN minutos sobre los datos acumulados.
-  - Los logs de cada proceso van a logs/ingesta.log y logs/spark.log.
+    Ctrl+C — ambos procesos se detienen limpiamente.
+ 
+Logs:
+    logs/orchestrator.log
+    logs/ingesta.log
+    logs/spark.log
 """
-
+ 
 import logging
-import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Event, Thread
-
-# ── Configuración ─────────────────────────────────────────────────────────────
-SPARK_INTERVAL_MIN  = 5        # cada cuántos minutos corre el job de Spark
-SPARK_SUBMIT_CMD    = "spark-submit"
-SPARK_PACKAGES      = (
+ 
+from cassandra.auth import PlainTextAuthProvider
+from cassandra.cluster import Cluster
+from cassandra.policies import RetryPolicy, RoundRobinPolicy
+from neo4j import GraphDatabase
+ 
+# ═════════════════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN
+# ═════════════════════════════════════════════════════════════════════════════
+ 
+SPARK_INTERVAL_MIN = 5
+ 
+SPARK_PACKAGES = (
     "com.datastax.spark:spark-cassandra-connector_2.12:3.5.1,"
     "org.neo4j:neo4j-connector-apache-spark_2.12:5.3.2_for_spark_3"
 )
-
-# Rutas relativas al repositorio
-ROOT_DIR        = Path(__file__).parent
-INGESTA_SCRIPT  = ROOT_DIR / "ingesta"  / "opensky_to_cassandra.py"
-SPARK_SCRIPT    = ROOT_DIR / "procesamiento" / "cassandra_to_neo4j_spark.py"
-LOGS_DIR        = ROOT_DIR / "logs"
-
-# ── Logging ───────────────────────────────────────────────────────────────────
+ 
+# ── Cassandra ─────────────────────────────────────────────────────────────────
+CASSANDRA_NODE_IPS = ["localhost"]
+CASSANDRA_PORT     = 9041
+CASSANDRA_USER     = "cassandra"
+CASSANDRA_PASSWORD = "cassandra"
+CASSANDRA_KEYSPACE = "opensky"
+ 
+# ── Neo4j ─────────────────────────────────────────────────────────────────────
+NEO4J_URI      = "bolt://localhost:7687"
+NEO4J_USER     = "neo4j"
+NEO4J_PASSWORD = "password"
+ 
+# ── Rutas ─────────────────────────────────────────────────────────────────────
+ROOT_DIR       = Path(__file__).parent
+INGESTA_SCRIPT = ROOT_DIR / "ingesta"       / "opensky_to_cassandra.py"
+SPARK_SCRIPT   = ROOT_DIR / "procesamiento" / "cassandra_to_neo4j_spark.py"
+LOGS_DIR       = ROOT_DIR / "logs"
+ 
+# ═════════════════════════════════════════════════════════════════════════════
+# LOGGING
+# ═════════════════════════════════════════════════════════════════════════════
+ 
 LOGS_DIR.mkdir(exist_ok=True)
-
+ 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
@@ -54,26 +82,95 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("orchestrator")
-
-
-# ── Hilo de ingesta ───────────────────────────────────────────────────────────
-def run_ingesta(stop_event: Event):
+ 
+ 
+# ═════════════════════════════════════════════════════════════════════════════
+# RESET AL INICIO
+# ═════════════════════════════════════════════════════════════════════════════
+ 
+def reset_cassandra():
     """
-    Corre el script de ingesta como subprocess.
-    Si falla, espera 30 s y reintenta (tolerancia a errores de red).
+    Vacía state_vectors y flight_events al iniciar.
+    Los aeropuertos NO se tocan — son referencia estática cargada una sola vez.
     """
-    if not INGESTA_SCRIPT.exists():
-        logger.error(
-            f"Script de ingesta no encontrado: {INGESTA_SCRIPT}\n"
-            "Exporta el notebook con:\n"
-            "  jupyter nbconvert --to script ingesta/opensky_to_cassandra.ipynb"
+    logger.info("Limpiando Cassandra (state_vectors, flight_events)...")
+    try:
+        auth = PlainTextAuthProvider(username=CASSANDRA_USER, password=CASSANDRA_PASSWORD)
+        cluster = Cluster(
+            contact_points=CASSANDRA_NODE_IPS,
+            port=CASSANDRA_PORT,
+            auth_provider=auth,
+            load_balancing_policy=RoundRobinPolicy(),
+            default_retry_policy=RetryPolicy(),
+            connect_timeout=15,
         )
+        session = cluster.connect(CASSANDRA_KEYSPACE)
+        session.execute("TRUNCATE state_vectors")
+        logger.info("  ✅ state_vectors vaciada.")
+        session.execute("TRUNCATE flight_events")
+        logger.info("  ✅ flight_events vaciada.")
+        cluster.shutdown()
+    except Exception as e:
+        logger.error(f"  ❌ Error limpiando Cassandra: {e}")
+        logger.error("  Verifica que Cassandra esté corriendo.")
+        sys.exit(1)
+ 
+ 
+def reset_neo4j():
+    """
+    Borra todos los nodos y relaciones de Neo4j.
+    Los constraints e índices se conservan.
+    Borra en batches de 10,000 para no agotar memoria en una sola transacción.
+    """
+    logger.info("Limpiando Neo4j...")
+    try:
+        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        with driver.session() as session:
+            total = 0
+            while True:
+                result = session.run("""
+                    MATCH (n)
+                    WITH n LIMIT 10000
+                    DETACH DELETE n
+                    RETURN count(n) AS deleted
+                """)
+                deleted = result.single()["deleted"]
+                total += deleted
+                if deleted == 0:
+                    break
+                logger.info(f"  Borrados {total:,} nodos hasta ahora...")
+        driver.close()
+        logger.info("  ✅ Neo4j limpio.")
+    except Exception as e:
+        logger.error(f"  ❌ Error limpiando Neo4j: {e}")
+        logger.error("  Verifica que Neo4j esté corriendo.")
+        sys.exit(1)
+ 
+ 
+def reset_databases():
+    logger.info("=" * 60)
+    logger.info("RESET INICIAL — limpiando datos de ejecuciones anteriores")
+    logger.info("  (aeropuertos en Cassandra se conservan)")
+    logger.info("=" * 60)
+    reset_cassandra()
+    reset_neo4j()
+    logger.info("Reset completado. Iniciando pipeline...")
+    logger.info("=" * 60)
+ 
+ 
+# ═════════════════════════════════════════════════════════════════════════════
+# PROCESO 1 — INGESTA CONTINUA
+# ═════════════════════════════════════════════════════════════════════════════
+ 
+def run_ingesta(stop_event: Event):
+    if not INGESTA_SCRIPT.exists():
+        logger.error(f"Script no encontrado: {INGESTA_SCRIPT}")
         stop_event.set()
         return
-
+ 
     log_file = open(LOGS_DIR / "ingesta.log", "a")
-    logger.info(f"Iniciando ingesta desde {INGESTA_SCRIPT}")
-
+    logger.info(f"Ingesta iniciando desde {INGESTA_SCRIPT}")
+ 
     while not stop_event.is_set():
         try:
             proc = subprocess.Popen(
@@ -82,112 +179,115 @@ def run_ingesta(stop_event: Event):
                 stderr=log_file,
             )
             logger.info(f"Ingesta PID {proc.pid} corriendo.")
-
-            # Esperar a que termine o a señal de stop
+ 
             while proc.poll() is None:
                 if stop_event.is_set():
                     proc.terminate()
-                    logger.info("Ingesta detenida por señal.")
+                    proc.wait(timeout=5)
+                    log_file.close()
                     return
                 time.sleep(2)
-
+ 
             rc = proc.returncode
+            if stop_event.is_set():
+                break
             if rc != 0:
-                logger.warning(f"Ingesta terminó con código {rc}. Reintentando en 30 s...")
+                logger.warning(f"Ingesta terminó con código {rc}. Reintentando en 30s...")
                 time.sleep(30)
-            else:
-                logger.info("Ingesta terminó normalmente.")
-                return
-
+ 
         except Exception as e:
-            logger.error(f"Error al lanzar ingesta: {e}. Reintentando en 30 s...")
+            logger.error(f"Error al lanzar ingesta: {e}. Reintentando en 30s...")
             time.sleep(30)
-
+ 
     log_file.close()
-
-
-# ── Hilo de procesamiento Spark ───────────────────────────────────────────────
+    logger.info("Hilo de ingesta terminado.")
+ 
+ 
+# ═════════════════════════════════════════════════════════════════════════════
+# PROCESO 2 — JOB SPARK PERIÓDICO
+# ═════════════════════════════════════════════════════════════════════════════
+ 
 def run_spark_loop(stop_event: Event):
-    """
-    Ejecuta el job de Spark cada SPARK_INTERVAL_MIN minutos.
-    Espera a que termine antes de programar la siguiente ejecución.
-    """
     log_file = open(LOGS_DIR / "spark.log", "a")
-    logger.info(f"Loop Spark iniciado. Intervalo: {SPARK_INTERVAL_MIN} min.")
-
-    # Esperar un ciclo de ingesta antes del primer run
-    logger.info(f"Esperando {SPARK_INTERVAL_MIN} min antes del primer job Spark...")
+    logger.info(f"Loop Spark iniciado. Primer job en {SPARK_INTERVAL_MIN} min.")
+ 
     stop_event.wait(timeout=SPARK_INTERVAL_MIN * 60)
-
+ 
     while not stop_event.is_set():
-        ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        ts = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         logger.info(f"[{ts}] Lanzando job Spark...")
-
+ 
+        sep = "-" * 60 + "\n"
+        log_file.write(f"\n{sep}[{ts}] Nueva ejecución Spark\n{sep}")
+        log_file.flush()
+ 
         try:
-            cmd = [
-                SPARK_SUBMIT_CMD,
-                "--packages", SPARK_PACKAGES,
-                str(SPARK_SCRIPT),
-            ]
+            cmd = ["spark-submit", "--packages", SPARK_PACKAGES, str(SPARK_SCRIPT)]
             proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
             logger.info(f"Spark PID {proc.pid}.")
-
+ 
             while proc.poll() is None:
                 if stop_event.is_set():
                     proc.terminate()
-                    logger.info("Spark detenido por señal.")
+                    proc.wait(timeout=30)
+                    log_file.close()
                     return
                 time.sleep(5)
-
+ 
             rc = proc.returncode
             if rc == 0:
-                logger.info("Job Spark completado exitosamente.")
+                logger.info("Job Spark completado.")
             else:
-                logger.warning(f"Job Spark terminó con código {rc}. Revisa logs/spark.log.")
-
+                logger.warning(f"Job Spark terminó con código {rc}. Ver logs/spark.log.")
+ 
         except FileNotFoundError:
             logger.error(
-                f"'{SPARK_SUBMIT_CMD}' no encontrado. "
-                "Verifica que Spark esté instalado y en el PATH."
+                "'spark-submit' no encontrado. "
+                "Spark debe instalarse en esta máquina o usar la imagen Docker."
             )
         except Exception as e:
-            logger.error(f"Error al lanzar Spark: {e}")
-
-        # Esperar hasta el siguiente ciclo
-        logger.info(f"Próximo job Spark en {SPARK_INTERVAL_MIN} min.")
-        stop_event.wait(timeout=SPARK_INTERVAL_MIN * 60)
-
+            logger.error(f"Error inesperado: {e}")
+ 
+        if not stop_event.is_set():
+            logger.info(f"Próximo job Spark en {SPARK_INTERVAL_MIN} min.")
+            stop_event.wait(timeout=SPARK_INTERVAL_MIN * 60)
+ 
     log_file.close()
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
+    logger.info("Loop Spark terminado.")
+ 
+ 
+# ═════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═════════════════════════════════════════════════════════════════════════════
+ 
 def main():
     logger.info("=" * 60)
-    logger.info("OpenSky Pipeline Orchestrator arrancando...")
-    logger.info(f"  Ingesta script : {INGESTA_SCRIPT}")
-    logger.info(f"  Spark script   : {SPARK_SCRIPT}")
-    logger.info(f"  Intervalo Spark: {SPARK_INTERVAL_MIN} min")
-    logger.info(f"  Logs           : {LOGS_DIR}/")
+    logger.info("OpenSky Pipeline Orchestrator")
+    logger.info(f"  Cassandra : {CASSANDRA_NODE_IPS[0]}:{CASSANDRA_PORT}")
+    logger.info(f"  Neo4j     : {NEO4J_URI}")
+    logger.info(f"  Intervalo : {SPARK_INTERVAL_MIN} min")
     logger.info("=" * 60)
-
+ 
+    # Limpiar datos de ejecuciones anteriores
+    reset_databases()
+ 
     stop_event = Event()
-
-    ingesta_thread = Thread(target=run_ingesta, args=(stop_event,), daemon=True, name="ingesta")
+    ingesta_thread = Thread(target=run_ingesta,    args=(stop_event,), daemon=True, name="ingesta")
     spark_thread   = Thread(target=run_spark_loop, args=(stop_event,), daemon=True, name="spark")
-
+ 
     ingesta_thread.start()
     spark_thread.start()
-
+ 
     try:
         while ingesta_thread.is_alive() or spark_thread.is_alive():
             time.sleep(1)
     except KeyboardInterrupt:
-        logger.info("Ctrl+C recibido — deteniendo procesos...")
+        logger.info("Ctrl+C — deteniendo pipeline...")
         stop_event.set()
-        ingesta_thread.join(timeout=10)
-        spark_thread.join(timeout=10)
+        ingesta_thread.join(timeout=15)
+        spark_thread.join(timeout=35)
         logger.info("Pipeline detenido limpiamente.")
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
