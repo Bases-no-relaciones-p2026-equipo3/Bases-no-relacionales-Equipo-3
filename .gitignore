@@ -1,9 +1,10 @@
 # ── Secretos — NUNCA commitear ────────────────────────────────────────────────
 api/keys.json          # API keys reales — usar keys.json.example como plantilla
+.env                   # config local con IPs y credenciales — usar .env.example
 *.env
 .env.*
 secrets/
-
+ 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
@@ -16,31 +17,30 @@ build/
 .eggs/
 *.egg
 pip-wheel-metadata/
-
+ 
 # ── Entornos virtuales ────────────────────────────────────────────────────────
 venv/
 .venv/
 env/
-.env/
 spark_job_env/
 *.tar.gz            # venv empaquetados con venv-pack
-
+ 
 # ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb_checkpoints
-
-# ── Spark / Java ─────────────────────────────────────────────────────────────
+ 
+# ── Spark / Java ──────────────────────────────────────────────────────────────
 derby.log
 metastore_db/
 spark-warehouse/
 *.jar
-
+ 
 # ── Logs y datos temporales ───────────────────────────────────────────────────
 *.log
 logs/
 tmp/
 temp/
-
+ 
 # ── IDEs ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/

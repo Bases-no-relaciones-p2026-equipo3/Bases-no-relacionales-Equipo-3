@@ -3,56 +3,53 @@ queries.py
 ──────────
 Las 11 consultas analíticas del notebook opensky_neo4j_queries,
 adaptadas como funciones Python que retornan listas de dicts (JSON-serializable).
-
-Cada función corresponde a un endpoint de la API.
-El driver Neo4j se inicializa una sola vez al importar el módulo.
+ 
+Configuración via .env o variables de entorno:
+    NEO4J_HOST — IP de Neo4j (default: localhost)
+    NEO4J_PORT — Puerto Bolt (default: 7687)
 """
-
+ 
 import logging
+import sys
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
-
+ 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, NEO4J_DATABASE
+ 
 from neo4j import GraphDatabase, exceptions as neo4j_exc
-import pandas as pd
-
+ 
 logger = logging.getLogger(__name__)
-
-# ── Config — cambiar IPs cuando pasen a distribuido ──────────────────────────
-NEO4J_URI = "bolt://10.15.20.X:7687"   # reemplaza X con la IP real
-NEO4J_USER     = "neo4j"
-NEO4J_PASSWORD = "password"
-NEO4J_DATABASE = "neo4j"
-
-NEAR_RADIUS_KM = 50
-
+ 
 # ── Driver (singleton) ────────────────────────────────────────────────────────
 _driver = None
-
-
+ 
+ 
 def get_driver():
     global _driver
     if _driver is None:
         _driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         _driver.verify_connectivity()
-        logger.info("Driver Neo4j inicializado.")
+        logger.info(f"Driver Neo4j inicializado en {NEO4J_URI}.")
     return _driver
-
-
+ 
+ 
 def close_driver():
     global _driver
     if _driver:
         _driver.close()
         _driver = None
         logger.info("Driver Neo4j cerrado.")
-
-
+ 
+ 
 @contextmanager
 def _session():
     driver = get_driver()
     with driver.session(database=NEO4J_DATABASE) as session:
         yield session
-
-
+ 
+ 
 def _run(cypher: str, **params) -> list[dict[str, Any]]:
     """Ejecuta una query Cypher y retorna lista de dicts."""
     try:
@@ -65,22 +62,20 @@ def _run(cypher: str, **params) -> list[dict[str, Any]]:
     except neo4j_exc.CypherSyntaxError as e:
         logger.error(f"Error de sintaxis Cypher: {e}")
         raise
-
-
+ 
+ 
 # ── Q1 — Top países con más aeronaves ────────────────────────────────────────
 def q1_top_countries(limit: int = 10) -> list[dict]:
-    """Top N países por cantidad de aeronaves registradas."""
     return _run("""
         MATCH (c:Country)-[:OPERATES]->(a:Aircraft)
         RETURN c.name AS country, count(a) AS aircraft_count
         ORDER BY aircraft_count DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q2 — Aeronaves con mayor velocidad promedio ───────────────────────────────
 def q2_top_speed(limit: int = 10, min_snapshots: int = 3) -> list[dict]:
-    """Top N aeronaves por velocidad promedio en vuelo (m/s y km/h)."""
     return _run("""
         MATCH (a:Aircraft)-[r:SNAPSHOT]->(s:Snapshot)
         WHERE r.on_ground = false AND r.velocity IS NOT NULL
@@ -94,11 +89,10 @@ def q2_top_speed(limit: int = 10, min_snapshots: int = 3) -> list[dict]:
         ORDER BY avg_velocity_ms DESC
         LIMIT $limit
     """, limit=limit, min_snapshots=min_snapshots)
-
-
+ 
+ 
 # ── Q3 — Hub de proximidad ────────────────────────────────────────────────────
 def q3_proximity_hub(limit: int = 10) -> list[dict]:
-    """Aeronaves con más vecinas a ≤50 km simultáneamente (hubs de tráfico)."""
     return _run("""
         MATCH (a:Aircraft)-[r:NEAR]-(b:Aircraft)
         WITH a, count(DISTINCT b) AS near_count, avg(r.dist_km) AS avg_dist
@@ -109,14 +103,10 @@ def q3_proximity_hub(limit: int = 10) -> list[dict]:
         ORDER BY near_count DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q4 — Trayectoria temporal de una aeronave ─────────────────────────────────
 def q4_aircraft_trajectory(icao24: str) -> list[dict]:
-    """
-    Serie temporal de snapshots para un avión específico.
-    Incluye altitud, velocidad, tasa vertical y posición.
-    """
     return _run("""
         MATCH (a:Aircraft {icao24: $icao24})-[r:SNAPSHOT]->()
         WHERE r.baro_altitude IS NOT NULL
@@ -130,11 +120,10 @@ def q4_aircraft_trajectory(icao24: str) -> list[dict]:
                r.on_ground      AS on_ground
         ORDER BY r.snapshot_time ASC
     """, icao24=icao24)
-
-
-# ── Q4-helper — Avión con más snapshots (para usar sin parámetro) ─────────────
+ 
+ 
+# ── Q4-helper — Avión con más snapshots ──────────────────────────────────────
 def q4_most_tracked_aircraft() -> dict:
-    """Retorna el icao24 del avión con más snapshots registrados."""
     results = _run("""
         MATCH (a:Aircraft)-[r:SNAPSHOT]->()
         RETURN a.icao24 AS icao24, count(r) AS snapshots
@@ -142,11 +131,10 @@ def q4_most_tracked_aircraft() -> dict:
         LIMIT 1
     """)
     return results[0] if results else {}
-
-
+ 
+ 
 # ── Q5 — Interacciones entre países ──────────────────────────────────────────
 def q5_country_interactions(limit: int = 15) -> list[dict]:
-    """Pares de países cuyas aeronaves han estado a ≤50 km entre sí."""
     return _run("""
         MATCH (c1:Country)-[:OPERATES]->(a1:Aircraft)-[:NEAR]-(a2:Aircraft)<-[:OPERATES]-(c2:Country)
         WHERE c1 <> c2
@@ -155,22 +143,20 @@ def q5_country_interactions(limit: int = 15) -> list[dict]:
         ORDER BY interactions DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q6 — Distribución por fuente de posición ─────────────────────────────────
 def q6_position_sources() -> list[dict]:
-    """Distribución de aeronaves por tecnología de rastreo (ADS-B, MLAT, etc.)."""
     return _run("""
         MATCH (a:Aircraft)
         RETURN a.position_source_label AS source_label,
                count(a) AS aircraft_count
         ORDER BY aircraft_count DESC
     """)
-
-
+ 
+ 
 # ── Q7 — Hotspots de salida ───────────────────────────────────────────────────
 def q7_departure_hotspots(limit: int = 20) -> list[dict]:
-    """Aeropuertos con más despegues detectados (confianza HIGH o MEDIUM)."""
     return _run("""
         MATCH (a:Aircraft)-[r:DEPARTED_FROM]->(ap:Airport)
         WHERE r.confidence IN ['HIGH', 'MEDIUM']
@@ -184,11 +170,10 @@ def q7_departure_hotspots(limit: int = 20) -> list[dict]:
         ORDER BY departures DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q8 — Hotspots de llegada ──────────────────────────────────────────────────
 def q8_arrival_hotspots(limit: int = 20) -> list[dict]:
-    """Aeropuertos con más aterrizajes detectados (confianza HIGH o MEDIUM)."""
     return _run("""
         MATCH (a:Aircraft)-[r:ARRIVED_AT]->(ap:Airport)
         WHERE r.confidence IN ['HIGH', 'MEDIUM']
@@ -202,14 +187,10 @@ def q8_arrival_hotspots(limit: int = 20) -> list[dict]:
         ORDER BY arrivals DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q9 — Rutas más frecuentes ─────────────────────────────────────────────────
 def q9_top_routes(limit: int = 25) -> list[dict]:
-    """
-    Pares origen→destino más frecuentes.
-    Solo cuenta vuelos donde el despegue ocurrió antes del aterrizaje.
-    """
     return _run("""
         MATCH (a:Aircraft)-[dep:DEPARTED_FROM]->(origin:Airport),
               (a)-[arr:ARRIVED_AT]->(dest:Airport)
@@ -230,14 +211,10 @@ def q9_top_routes(limit: int = 25) -> list[dict]:
         ORDER BY flights DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q10 — Tráfico neto por aeropuerto ────────────────────────────────────────
 def q10_net_traffic(limit: int = 30) -> list[dict]:
-    """
-    Salidas − llegadas por aeropuerto.
-    Positivo = más salidas (emisor). Negativo = más llegadas (hub receptor).
-    """
     return _run("""
         MATCH (ap:Airport)
         OPTIONAL MATCH (ap)<-[dep:DEPARTED_FROM]-(:Aircraft)
@@ -258,14 +235,10 @@ def q10_net_traffic(limit: int = 30) -> list[dict]:
         ORDER BY departures + arrivals DESC
         LIMIT $limit
     """, limit=limit)
-
-
+ 
+ 
 # ── Q11 — Historial de un avión ───────────────────────────────────────────────
 def q11_aircraft_history(icao24: str) -> list[dict]:
-    """
-    Secuencia cronológica de aeropuertos visitados por un avión.
-    Incluye tipo de evento (DEPARTED_FROM / ARRIVED_AT), confianza y distancia.
-    """
     return _run("""
         MATCH (a:Aircraft {icao24: $icao24})-[r:DEPARTED_FROM|ARRIVED_AT]->(ap:Airport)
         RETURN type(r)      AS event_type,
@@ -279,11 +252,11 @@ def q11_aircraft_history(icao24: str) -> list[dict]:
                r.dist_km    AS dist_km
         ORDER BY event_time ASC
     """, icao24=icao24)
-
-
+ 
+ 
 # ── Verificación del grafo ────────────────────────────────────────────────────
 def graph_stats() -> dict[str, int]:
-    """Conteos de nodos y relaciones en el grafo. Útil para el endpoint /health."""
+    """Conteos de nodos y relaciones. Usado por el endpoint /health."""
     queries = {
         "aircraft":      "MATCH (a:Aircraft) RETURN count(a) AS n",
         "countries":     "MATCH (c:Country) RETURN count(c) AS n",
@@ -299,3 +272,4 @@ def graph_stats() -> dict[str, int]:
         for key, cypher in queries.items():
             stats[key] = s.run(cypher).single()["n"]
     return stats
+ 
