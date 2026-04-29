@@ -71,3 +71,48 @@
 2026-04-29 12:58:25,679  WARNING   orchestrator — Ingesta terminó con código 1. Reintentando en 30s...
 2026-04-29 12:58:34,629  INFO      orchestrator — Ctrl+C — deteniendo pipeline...
 2026-04-29 12:58:49,637  INFO      orchestrator — Pipeline detenido limpiamente.
+2026-04-29 13:02:52,316  INFO      orchestrator — ============================================================
+2026-04-29 13:02:52,317  INFO      orchestrator — RESET INICIAL — limpiando datos de ejecuciones anteriores
+2026-04-29 13:02:52,319  INFO      orchestrator —   (aeropuertos en Cassandra se conservan)
+2026-04-29 13:02:52,319  INFO      orchestrator — ============================================================
+2026-04-29 13:02:52,320  INFO      orchestrator — Limpiando Cassandra (state_vectors, flight_events)...
+2026-04-29 13:02:52,376  WARNING   cassandra.cluster — Downgrading core protocol version from 66 to 65 for 127.0.0.1:9041. To avoid this, it is best practice to explicitly set Cluster(protocol_version) to the version supported by your cluster. https://docs.datastax.com/en/developer/python-driver/latest/api/cassandra/cluster.html#cassandra.cluster.Cluster.protocol_version
+2026-04-29 13:02:52,529  WARNING   cassandra.cluster — Downgrading core protocol version from 65 to 5 for 127.0.0.1:9041. To avoid this, it is best practice to explicitly set Cluster(protocol_version) to the version supported by your cluster. https://docs.datastax.com/en/developer/python-driver/latest/api/cassandra/cluster.html#cassandra.cluster.Cluster.protocol_version
+2026-04-29 13:02:53,119  INFO      cassandra.cluster — New Cassandra host <Host: 10.15.20.18:9042 dc1> discovered
+2026-04-29 13:02:53,121  INFO      cassandra.cluster — New Cassandra host <Host: 10.15.20.18:9043 dc1> discovered
+2026-04-29 13:02:53,123  INFO      cassandra.cluster — Cassandra host ::1:9041 removed
+2026-04-29 13:02:54,992  INFO      orchestrator —   ✅ state_vectors vaciada.
+2026-04-29 13:02:55,580  INFO      orchestrator —   ✅ flight_events vaciada.
+2026-04-29 13:02:55,584  INFO      orchestrator — Limpiando Neo4j...
+2026-04-29 13:02:55,694  INFO      orchestrator —   ✅ Neo4j limpio.
+2026-04-29 13:02:55,696  INFO      orchestrator — Reset completado. Iniciando pipeline...
+2026-04-29 13:02:55,696  INFO      orchestrator — ============================================================
+2026-04-29 13:02:55,699  INFO      orchestrator — Loop Spark iniciado. Primer job en 5 min.
+2026-04-29 13:02:55,699  INFO      orchestrator — Ingesta iniciando desde C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py
+2026-04-29 13:02:55,712  INFO      orchestrator — Ingesta PID 3208 corriendo.
+2026-04-29 13:06:08,132  INFO      orchestrator — Ctrl+C — deteniendo pipeline...
+2026-04-29 13:06:09,829  INFO      orchestrator — Pipeline detenido limpiamente.
+2026-04-29 13:08:49,213  INFO      orchestrator — ============================================================
+2026-04-29 13:08:49,214  INFO      orchestrator — RESET INICIAL — limpiando datos de ejecuciones anteriores
+2026-04-29 13:08:49,215  INFO      orchestrator —   (aeropuertos en Cassandra se conservan)
+2026-04-29 13:08:49,216  INFO      orchestrator — ============================================================
+2026-04-29 13:08:49,216  INFO      orchestrator — Limpiando Cassandra (state_vectors, flight_events)...
+2026-04-29 13:08:49,254  WARNING   cassandra.cluster — Downgrading core protocol version from 66 to 65 for 127.0.0.1:9041. To avoid this, it is best practice to explicitly set Cluster(protocol_version) to the version supported by your cluster. https://docs.datastax.com/en/developer/python-driver/latest/api/cassandra/cluster.html#cassandra.cluster.Cluster.protocol_version
+2026-04-29 13:08:49,414  WARNING   cassandra.cluster — Downgrading core protocol version from 65 to 5 for 127.0.0.1:9041. To avoid this, it is best practice to explicitly set Cluster(protocol_version) to the version supported by your cluster. https://docs.datastax.com/en/developer/python-driver/latest/api/cassandra/cluster.html#cassandra.cluster.Cluster.protocol_version
+2026-04-29 13:08:49,948  INFO      cassandra.cluster — New Cassandra host <Host: 10.15.20.18:9042 dc1> discovered
+2026-04-29 13:08:49,949  INFO      cassandra.cluster — New Cassandra host <Host: 10.15.20.18:9043 dc1> discovered
+2026-04-29 13:08:49,950  INFO      cassandra.cluster — Cassandra host ::1:9041 removed
+2026-04-29 13:08:51,628  INFO      orchestrator —   ✅ state_vectors vaciada.
+2026-04-29 13:08:52,076  INFO      orchestrator —   ✅ flight_events vaciada.
+2026-04-29 13:08:52,133  INFO      orchestrator — Limpiando Neo4j...
+2026-04-29 13:08:52,233  INFO      orchestrator —   ✅ Neo4j limpio.
+2026-04-29 13:08:52,235  INFO      orchestrator — Reset completado. Iniciando pipeline...
+2026-04-29 13:08:52,235  INFO      orchestrator — ============================================================
+2026-04-29 13:08:52,237  INFO      orchestrator — Ingesta iniciando desde C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py
+2026-04-29 13:08:52,238  INFO      orchestrator — Loop Spark iniciado. Primer job en 5 min.
+2026-04-29 13:08:52,250  INFO      orchestrator — Ingesta PID 25972 corriendo.
+2026-04-29 13:13:52,247  INFO      orchestrator — [2026-04-29 19:13:52 UTC] Lanzando job Spark...
+2026-04-29 13:13:52,254  ERROR     orchestrator — 'spark-submit' no encontrado. Agregar $SPARK_HOME/bin al PATH.
+2026-04-29 13:13:52,255  INFO      orchestrator — Próximo job Spark en 5 min.
+2026-04-29 13:13:55,378  INFO      orchestrator — Ctrl+C — deteniendo pipeline...
+2026-04-29 13:13:56,329  INFO      orchestrator — Pipeline detenido limpiamente.

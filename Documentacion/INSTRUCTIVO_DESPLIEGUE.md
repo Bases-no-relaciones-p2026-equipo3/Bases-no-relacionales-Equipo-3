@@ -30,7 +30,11 @@ OpenSky API → Cassandra → Spark → Neo4j → FastAPI
 ```powershell
 uv sync
 ```
-
+- [ ] Configurar variables de entorno:
+  Copia el archivo de plantilla a tu entorno local:
+  ```powershell
+  copy .env.example .env
+  
 - [ ] Verificar conectividad básica antes de empezar:
 
 ```powershell
