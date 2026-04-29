@@ -7,25 +7,21 @@ requires-python = ">=3.13"
 dependencies = [
     # Cassandra
     "cassandra-driver>=3.29.3",
-
     # Neo4j
     "neo4j>=5.24.0",
-
     # Spark
     "pyspark>=4.1.0",
     "venv-pack>=0.2.0",
-
     # API
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.6",
-
     # Datos e ingesta
     "pandas>=2.2.3",
     "requests>=2.32.3",
     "python-dotenv>=1.2.1",
     "tqdm>=4.67.1",
-
     # Notebooks
     "ipykernel>=7.1.0",
     "ipywidgets>=8.1.8",
+    "pyasyncore>=1.0.5",
 ]

@@ -60,7 +60,7 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOGS_DIR / "orchestrator.log"),
+        logging.FileHandler(LOGS_DIR / "orchestrator.log", encoding="utf-8"), # <--- Agrega esto
     ],
 )
 logger = logging.getLogger("orchestrator")
@@ -135,7 +135,7 @@ def run_ingesta(stop_event: Event):
         stop_event.set()
         return
  
-    log_file = open(LOGS_DIR / "ingesta.log", "a")
+    log_file = open(LOGS_DIR / "ingesta.log", "a", encoding="utf-8") # <--- Agrega esto
     logger.info(f"Ingesta iniciando desde {INGESTA_SCRIPT}")
  
     while not stop_event.is_set():
@@ -173,7 +173,7 @@ def run_ingesta(stop_event: Event):
 # ═════════════════════════════════════════════════════════════════════════════
  
 def run_spark_loop(stop_event: Event):
-    log_file = open(LOGS_DIR / "spark.log", "a")
+    log_file = open(LOGS_DIR / "spark.log", "a", encoding="utf-8") # <--- Agrega esto
     logger.info(f"Loop Spark iniciado. Primer job en {SPARK_INTERVAL_MIN} min.")
  
     stop_event.wait(timeout=SPARK_INTERVAL_MIN * 60)
