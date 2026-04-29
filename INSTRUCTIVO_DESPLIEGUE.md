@@ -25,11 +25,6 @@ OpenSky API → Cassandra → Spark → Neo4j → FastAPI
 - [ ] WireGuard activo y conectado al tunnel del equipo
 - [ ] Repositorio clonado:
 
-```powershell
-git clone https://github.com/Bases-no-relaciones-p2026-equipo3/Bases-no-relacionales-Equipo-3.git
-cd Bases-no-relacionales-Equipo-3
-```
-
 - [ ] Dependencias instaladas:
 
 ```powershell
