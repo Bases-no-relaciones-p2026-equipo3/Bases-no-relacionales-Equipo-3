@@ -13,6 +13,7 @@ Configuración via .env o variables de entorno:
 """
  
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -222,6 +223,7 @@ def run_spark_loop(stop_event: Event):
 # ═════════════════════════════════════════════════════════════════════════════
  
 def main():
+    os.environ["PYTHONUTF8"] = "1" # <--- ¡Agrega esta línea!
     print_config()
     reset_databases()
  

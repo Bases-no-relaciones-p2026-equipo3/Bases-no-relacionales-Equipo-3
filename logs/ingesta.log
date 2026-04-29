@@ -1533,3 +1533,87 @@ Traceback (most recent call last):
     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
            ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 256, in main
+    print_config()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\config.py", line 51, in print_config
+    print("\u2500" * 50)
+    ~~~~~^^^^^^^^^^
+  File "C:\Users\LARIG\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 256, in main
+    print_config()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\config.py", line 51, in print_config
+    print("\u2500" * 50)
+    ~~~~~^^^^^^^^^^
+  File "C:\Users\LARIG\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 256, in main
+    print_config()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\config.py", line 51, in print_config
+    print("\u2500" * 50)
+    ~~~~~^^^^^^^^^^
+  File "C:\Users\LARIG\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 256, in main
+    print_config()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\config.py", line 51, in print_config
+    print("\u2500" * 50)
+    ~~~~~^^^^^^^^^^
+  File "C:\Users\LARIG\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 256, in main
+    print_config()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\config.py", line 51, in print_config
+    print("\u2500" * 50)
+    ~~~~~^^^^^^^^^^
+  File "C:\Users\LARIG\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 311, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py", line 256, in main
+    print_config()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\config.py", line 51, in print_config
+    print("\u2500" * 50)
+    ~~~~~^^^^^^^^^^
+  File "C:\Users\LARIG\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-49: character maps to <undefined>
