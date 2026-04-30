@@ -55,6 +55,14 @@ def download_airports() -> list[dict]:
             lon = float(row["longitude_deg"])
         except (ValueError, KeyError):
             continue
+
+        # ── INICIO FILTRO REGIONAL (EUROPA) ──────────────────────────────────
+        # Para volver a descargar TODOS los aeropuertos a nivel global,
+        # simplemente comenta (pon un #) o borra estas dos líneas de abajo:
+        if not (34.0 <= lat <= 72.0 and -25.0 <= lon <= 45.0):
+            continue
+        # ── FIN FILTRO REGIONAL ──────────────────────────────────────────────
+        
         records.append({
             "icao_code":   icao,
             "iata_code":   row.get("iata_code", "").strip() or None,

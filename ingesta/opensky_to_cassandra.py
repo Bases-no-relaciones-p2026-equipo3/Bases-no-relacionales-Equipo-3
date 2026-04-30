@@ -69,7 +69,8 @@ BATCH_SIZE             = 10    # bajo para no superar límite de 5KB por batch
 
 # ── Ingesta ───────────────────────────────────────────────────────────────────
 CASSANDRA_TABLE = "state_vectors"
-BOUNDING_BOX    = None    # None = mundo completo. Ej: (14.5, -118.4, 32.7, -86.7) para México
+# Bounding Box para Europa (LatSur, LonOeste, LatNorte, LonEste)
+BOUNDING_BOX    = (34.0, -25.0, 72.0, 45.0)    # None = mundo completo. Ej: (14.5, -118.4, 32.7, -86.7) para México
 
 STATE_VECTOR_FIELDS = [
     "icao24", "callsign", "origin_country", "time_position", "last_contact",

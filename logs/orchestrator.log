@@ -137,3 +137,9 @@
 2026-04-29 13:30:22,954  INFO      orchestrator — Ingesta PID 28112 corriendo.
 2026-04-29 13:30:57,837  INFO      orchestrator — Ctrl+C — deteniendo pipeline...
 2026-04-29 13:30:58,964  INFO      orchestrator — Pipeline detenido limpiamente.
+2026-04-30 10:05:22,804  INFO      orchestrator — ============================================================
+2026-04-30 10:05:22,808  INFO      orchestrator — RESET INICIAL — limpiando datos de ejecuciones anteriores
+2026-04-30 10:05:22,809  INFO      orchestrator —   (aeropuertos en Cassandra se conservan)
+2026-04-30 10:05:22,810  INFO      orchestrator — ============================================================
+2026-04-30 10:05:22,810  INFO      orchestrator — Limpiando Cassandra (state_vectors, flight_events)...
+2026-04-30 10:05:25,544  ERROR     orchestrator —   ❌ Error limpiando Cassandra: {}
