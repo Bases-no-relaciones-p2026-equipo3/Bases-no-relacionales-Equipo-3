@@ -23,67 +23,85 @@ OpenSky API → Cassandra → Spark → Neo4j → FastAPI
 ## Prerequisitos para todos
 
 - [ ] WireGuard activo y conectado al tunnel del equipo
-- [ ] Repositorio clonado y actualizado
+- [ ] Repositorio clonado y actualizado:
+
+```powershell
+# Windows
+git clone https://github.com/Bases-no-relaciones-p2026-equipo3/Bases-no-relacionales-Equipo-3.git
+cd Bases-no-relacionales-Equipo-3
+git pull
+```
+
+```bash
+# Mac
+git clone https://github.com/Bases-no-relaciones-p2026-equipo3/Bases-no-relacionales-Equipo-3.git
+cd Bases-no-relacionales-Equipo-3
+git pull
+```
+
 - [ ] Dependencias instaladas:
 
 ```powershell
 uv sync
 ```
 
-- [ ] Configurar el `.env` según tu rol (ver sección de cada integrante más abajo):
+- [ ] Crear tu archivo `.env` local a partir de la plantilla:
 
 ```powershell
+# Windows
 copy .env.example .env
-# Editar .env con los valores de tu rol
+notepad .env
 ```
 
-- [ ] Verificar conectividad básica antes de empezar:
+```bash
+# Mac
+cp .env.example .env
+nano .env
+```
+
+Cada quien edita su `.env` con las IPs del día según su rol (ver sección correspondiente). El `.env` nunca se sube al repo.
+
+- [ ] Verificar conectividad antes de empezar:
 
 ```powershell
-ping 10.15.20.18   # Andre — Cassandra
-ping 10.15.20.12   # Víctor — Neo4j
+# Windows
+Test-NetConnection -ComputerName 10.15.20.18 -Port 9041
+Test-NetConnection -ComputerName 10.15.20.12 -Port 7687
 ```
 
-> **Nota:** Ya no se editan IPs dentro de los scripts. Toda la configuración vive en tu `.env`.
-> `config.py` la carga automáticamente al correr cualquier script.
+```bash
+# Mac
+nc -zv 10.15.20.18 9041
+nc -zv 10.15.20.12 7687
+```
 
 ---
 
 ## Orden de arranque
 
-Respetar este orden — cada paso depende del anterior:
-
 ```
 1. Andre    → levantar Cassandra
 2. Víctor   → levantar Neo4j
-3. Andre    → correr setup (migration + airports + neo4j indexes)
-4. Andre    → correr ingesta (opensky_to_cassandra.py)
-5. Regina   → correr orquestador (pipeline_orchestrator.py)
-6. Fernanda → levantar API (uvicorn)
+3. Andre    → correr setup (solo primera vez o tras reset)
+4. Andre    → correr ingesta
+5. Regina   → correr orquestador (esperar 5 min de ingesta)
+6. Fernanda → levantar API (esperar al menos 1 run de Spark)
 ```
 
 ---
 
 ## Andre — Cassandra + Ingesta `10.15.20.18`
 
-### Configurar tu `.env`
+### Tu `.env`
 
-```env
-OPENSKY_CLIENT_ID     = tu-client-id
-OPENSKY_CLIENT_SECRET = tu-client-secret
-
-CASSANDRA_HOST     = localhost       # Cassandra corre en tu máquina
-CASSANDRA_PORT     = 9041
-CASSANDRA_USER     = cassandra
-CASSANDRA_PASSWORD = cassandra
-
-NEO4J_HOST     = 10.15.20.12        # IP de Víctor
+```ini
+CASSANDRA_HOST = localhost      # Cassandra corre en tu propia laptop
+CASSANDRA_PORT = 9041
+NEO4J_HOST     = 10.15.20.12   # IP de Víctor
 NEO4J_PORT     = 7687
-NEO4J_USER     = neo4j
-NEO4J_PASSWORD = password
 ```
 
-### Cada sesión — Paso 1: Levantar Cassandra
+### Paso 1 — Levantar Cassandra
 
 ```powershell
 docker start cassandra-node-1 cassandra-node-2 cassandra-node-3
@@ -98,9 +116,9 @@ docker ps | findstr cassandra
 
 Confirmar al equipo que Cassandra está lista.
 
-### Cada sesión — Paso 2: Correr setup
+### Paso 2 — Setup inicial
 
-> Solo necesario si es la primera vez o si se borraron los datos.
+> Solo necesario la primera vez o tras un reset completo.
 
 ```powershell
 uv run python setup/cassandra_schema_migration.py
@@ -108,8 +126,12 @@ uv run python setup/load_airports.py
 uv run python setup/neo4j_setup_indexes.py
 ```
 
-Salida esperada al final:
+Salida esperada:
 ```
+Configuración activa:
+  Cassandra : localhost:9041 (keyspace: opensky)
+  Neo4j     : bolt://10.15.20.12:7687
+──────────────────────────────────────────────────
 ✅ Keyspace 'opensky' listo.
 ✅ Tabla 'flight_events' lista.
 ✅ Tabla 'airports' lista.
@@ -119,7 +141,7 @@ Salida esperada al final:
 
 > Si `neo4j_setup_indexes.py` falla, Víctor aún no levantó Neo4j. Esperar y volver a correr solo ese script.
 
-### Cada sesión — Paso 3: Correr ingesta
+### Paso 3 — Correr ingesta
 
 ```powershell
 uv run python ingesta/opensky_to_cassandra.py
@@ -131,66 +153,52 @@ Iter    1 | aeronaves:  8432 | insertadas:  8432 | total:    8,432 | 3.2s
 Iter    2 | aeronaves:  8401 | insertadas:  8401 | total:   16,833 | 2.9s
 ```
 
-Avisar a Regina cuando hayan pasado **al menos 5 minutos** de ingesta.
+Avisar a Regina cuando lleven **al menos 5 minutos** corriendo.
 
 ---
 
 ## Víctor — Neo4j `10.15.20.12`
 
-### Configurar tu `.env`
+### Tu `.env`
 
-```env
-CASSANDRA_HOST     = 10.15.20.18    # IP de Andre
-CASSANDRA_PORT     = 9041
-CASSANDRA_USER     = cassandra
-CASSANDRA_PASSWORD = cassandra
-
-NEO4J_HOST     = localhost           # Neo4j corre en tu máquina
+```ini
+CASSANDRA_HOST = 10.15.20.18   # IP de Andre
+CASSANDRA_PORT = 9041
+NEO4J_HOST     = localhost      # Neo4j corre en tu propia laptop
 NEO4J_PORT     = 7687
-NEO4J_USER     = neo4j
-NEO4J_PASSWORD = password
 ```
 
-### Cada sesión — Paso 1: Levantar Neo4j
+### Paso 1 — Levantar Neo4j
 
 ```powershell
+# Windows
 docker start neo4j-instance
-```
-
-Verificar:
-```powershell
 docker ps | findstr neo4j
 Test-NetConnection -ComputerName localhost -Port 7687
-# TcpTestSucceeded: True
+```
+
+```bash
+# Mac
+docker start neo4j-instance
+docker ps | grep neo4j
+nc -zv localhost 7687
 ```
 
 Confirmar al equipo que Neo4j está lista.
 
 ### Monitorear el grafo
 
-Abre en el navegador: `http://localhost:7474`
-- Usuario: `neo4j`
-- Contraseña: `password`
+Abrir `http://localhost:7474` — usuario: `neo4j` / contraseña: `password`
 
-Después de que Regina corra Spark, verifica que llegaron datos:
+Después de que Regina corra Spark:
 
 ```cypher
-// ¿Cuántas aeronaves?
 MATCH (a:Aircraft) RETURN count(a) AS aeronaves
-
-// ¿Cuántos países?
 MATCH (c:Country) RETURN count(c) AS paises
-
-// Top 10 países por flota
-MATCH (c:Country)-[:OPERATES]->(a:Aircraft)
-RETURN c.name AS pais, count(a) AS flota
-ORDER BY flota DESC LIMIT 10
-
-// Verificar relaciones
 MATCH ()-[r]->() RETURN type(r), count(r) AS total ORDER BY total DESC
 ```
 
-### Si necesitas resetear Neo4j manualmente
+### Si necesitas resetear manualmente
 
 ```cypher
 MATCH (n) DETACH DELETE n
@@ -200,19 +208,13 @@ MATCH (n) DETACH DELETE n
 
 ## Regina — Spark + Orquestador `10.15.20.13`
 
-### Configurar tu `.env`
+### Tu `.env`
 
-```env
-CASSANDRA_HOST     = 10.15.20.18    # IP de Andre
-CASSANDRA_PORT     = 9041
-CASSANDRA_USER     = cassandra
-CASSANDRA_PASSWORD = cassandra
-
-NEO4J_HOST     = 10.15.20.12        # IP de Víctor
-NEO4J_PORT     = 7687
-NEO4J_USER     = neo4j
-NEO4J_PASSWORD = password
-
+```ini
+CASSANDRA_HOST   = 10.15.20.18   # IP de Andre
+CASSANDRA_PORT   = 9041
+NEO4J_HOST       = 10.15.20.12   # IP de Víctor
+NEO4J_PORT       = 7687
 SPARK_MASTER     = local[*]
 SPARK_DRIVER_MEM = 2g
 SPARK_EXEC_MEM   = 2g
@@ -221,159 +223,174 @@ SPARK_EXEC_MEM   = 2g
 ### Antes de empezar — Verificar conectividad
 
 ```powershell
-# Cassandra (Andre)
+# Windows
 Test-NetConnection -ComputerName 10.15.20.18 -Port 9041
-
-# Neo4j (Víctor)
 Test-NetConnection -ComputerName 10.15.20.12 -Port 7687
 ```
 
-Ambos deben dar `TcpTestSucceeded: True`. Si no, el integrante correspondiente debe revisar sus contenedores.
+```bash
+# Mac
+nc -zv 10.15.20.18 9041
+nc -zv 10.15.20.12 7687
+```
 
 ### Correr el orquestador
 
-> ⚠️ Esperar confirmación de Andre de que la ingesta lleva al menos 5 minutos corriendo.
+> ⚠️ Esperar confirmación de Andre de que la ingesta lleva al menos 5 minutos.
 
 ```powershell
 uv run python pipeline_orchestrator.py
 ```
 
-Al arrancar verás el reset automático:
+Al arrancar verás:
 ```
+Configuración activa:
+  Cassandra : 10.15.20.18:9041 (keyspace: opensky)
+  Neo4j     : bolt://10.15.20.12:7687
+──────────────────────────────────────────────────
 RESET INICIAL — limpiando datos de ejecuciones anteriores
   ✅ state_vectors vaciada.
   ✅ flight_events vaciada.
   ✅ Neo4j limpio.
-Reset completado. Iniciando pipeline...
-```
-
-Luego el primer job de Spark corre a los 5 minutos:
-```
 [23:24:18 UTC] Lanzando job Spark...
 Job Spark completado exitosamente.
 Próximo job Spark en 5 min.
 ```
 
-Si ves `'spark-submit' no encontrado`, Spark no está en el PATH:
+### Si spark-submit no se encuentra
 
 ```powershell
+# Windows — agregar Spark al PATH de la sesión actual
 $env:PATH += ";C:\spark\bin"   # ajustar a tu ruta de instalación
+spark-submit --version
+```
+
+```bash
+# Mac
+export PATH="$PATH:/opt/homebrew/opt/apache-spark/bin"
+spark-submit --version
 ```
 
 ### Monitorear logs
 
 ```powershell
-# Ver log de Spark en tiempo real
+# Windows
 Get-Content logs/spark.log -Wait -Tail 30
-
-# Ver log de ingesta
 Get-Content logs/ingesta.log -Wait -Tail 20
+```
+
+```bash
+# Mac
+tail -f logs/spark.log
+tail -f logs/ingesta.log
 ```
 
 ---
 
 ## Fernanda — API FastAPI `10.15.20.20`
 
-### Configurar tu `.env`
+### Tu `.env`
 
-```env
-CASSANDRA_HOST     = 10.15.20.18    # IP de Andre (solo si la API lo necesita)
-CASSANDRA_PORT     = 9041
-
-NEO4J_HOST     = 10.15.20.12        # IP de Víctor
+```ini
+CASSANDRA_HOST = 10.15.20.18   # IP de Andre
+CASSANDRA_PORT = 9041
+NEO4J_HOST     = 10.15.20.12   # IP de Víctor
 NEO4J_PORT     = 7687
-NEO4J_USER     = neo4j
-NEO4J_PASSWORD = password
 ```
 
-### Antes de empezar
-
-Verificar que Neo4j tiene datos (esperar al menos un run de Spark):
+### Paso 1 — Verificar que Neo4j tiene datos
 
 ```powershell
+# Windows
 Test-NetConnection -ComputerName 10.15.20.12 -Port 7687
 ```
 
-### Configurar tu API key
-
-Crea o edita `api/keys.json`:
-
-```json
-{
-  "andre":    "sk-andre-REEMPLAZA",
-  "victor":   "sk-victor-REEMPLAZA",
-  "regina":   "sk-regina-REEMPLAZA",
-  "fernanda": "sk-fernanda-REEMPLAZA"
-}
+```bash
+# Mac
+nc -zv 10.15.20.12 7687
 ```
 
-Generar cada key:
+### Paso 2 — Crear API keys
+
 ```powershell
-python -c "import secrets; print('sk-andre-' + secrets.token_urlsafe(24))"
-python -c "import secrets; print('sk-victor-' + secrets.token_urlsafe(24))"
-python -c "import secrets; print('sk-regina-' + secrets.token_urlsafe(24))"
+# Windows / Mac — mismo comando
+python -c "import secrets; print('sk-andre-'    + secrets.token_urlsafe(24))"
+python -c "import secrets; print('sk-victor-'   + secrets.token_urlsafe(24))"
+python -c "import secrets; print('sk-regina-'   + secrets.token_urlsafe(24))"
 python -c "import secrets; print('sk-fernanda-' + secrets.token_urlsafe(24))"
 ```
 
-### Levantar la API
+Crear `api/keys.json` (no se sube al repo):
+
+```json
+{
+  "andre":    "sk-andre-RESULTADO",
+  "victor":   "sk-victor-RESULTADO",
+  "regina":   "sk-regina-RESULTADO",
+  "fernanda": "sk-fernanda-RESULTADO"
+}
+```
+
+Compartir cada key por WhatsApp/chat, no por el repo.
+
+### Paso 3 — Levantar la API
 
 ```powershell
+# Windows / Mac — mismo comando
 cd api
 uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-La API queda disponible para todo el equipo en:
-```
-http://10.15.20.20:8000/docs
-```
+Disponible para todo el equipo en: `http://10.15.20.20:8000/docs`
 
-### Probar los endpoints
+### Paso 4 — Probar
 
 ```powershell
-$KEY = "sk-andre-TU_KEY_AQUI"
+# Windows
+$KEY = "sk-andre-TU_KEY"
 $API = "http://10.15.20.20:8000"
-
-# Sin auth — verificar que la API responde
 curl $API/health
-
-# Con auth — consultas analíticas
 curl -H "X-API-Key: $KEY" "$API/analytics/top-countries"
-curl -H "X-API-Key: $KEY" "$API/analytics/departure-hotspots"
-curl -H "X-API-Key: $KEY" "$API/analytics/top-routes"
+```
+
+```bash
+# Mac
+KEY="sk-andre-TU_KEY"
+API="http://10.15.20.20:8000"
+curl $API/health
+curl -H "X-API-Key: $KEY" "$API/analytics/top-countries"
 ```
 
 ### Endpoints disponibles
 
 | Endpoint | Descripción |
 |---|---|
-| `GET /health` | Estado del sistema y conteos del grafo |
+| `GET /health` | Estado y conteos del grafo |
 | `GET /analytics/top-countries` | Top países por flota |
 | `GET /analytics/top-speed` | Aeronaves más rápidas |
-| `GET /analytics/proximity-hubs` | Aeronaves más cercanas entre sí |
+| `GET /analytics/proximity-hubs` | Hubs de proximidad aérea |
 | `GET /analytics/most-tracked` | Avión con más snapshots |
 | `GET /analytics/trajectory/{icao24}` | Trayectoria de un avión |
 | `GET /analytics/country-interactions` | Interacciones entre países |
-| `GET /analytics/position-sources` | Distribución por tecnología ADS-B |
+| `GET /analytics/position-sources` | Distribución por tecnología |
 | `GET /analytics/departure-hotspots` | Aeropuertos con más despegues |
 | `GET /analytics/arrival-hotspots` | Aeropuertos con más aterrizajes |
 | `GET /analytics/top-routes` | Rutas más frecuentes |
 | `GET /analytics/net-traffic` | Tráfico neto por aeropuerto |
 | `GET /analytics/aircraft-history/{icao24}` | Historial de un avión |
 
-Documentación interactiva completa: `http://10.15.20.20:8000/docs`
-
 ---
 
-## Resolución de problemas comunes
+## Resolución de problemas
 
 | Error | Causa | Solución |
 |---|---|---|
-| `NoHostAvailable` | Cassandra no está corriendo | Andre: `docker start cassandra-node-1 cassandra-node-2 cassandra-node-3` |
-| `TcpTestSucceeded: False` a `10.15.20.18:9041` | WireGuard no activo o Andre apagado | Verificar WireGuard y que Andre tiene Docker corriendo |
-| `ServiceUnavailable` en Neo4j | Neo4j no está corriendo | Víctor: `docker start neo4j-instance` |
-| `spark-submit no encontrado` | Spark no está en el PATH | Regina: agregar `$SPARK_HOME/bin` al PATH |
-| `Batch size exceeding threshold` | Batch muy grande en ingesta | Reducir `BATCH_SIZE = 5` en `opensky_to_cassandra.py` |
-| `WriteTimeout` en Cassandra | Carga muy alta | Reducir `BATCH_SIZE = 5` |
-| API da `403 Forbidden` | Key incorrecta o faltante | Fernanda: verificar `api/keys.json` |
-| Neo4j vacío después de Spark | Job de Spark falló | Regina: revisar `logs/spark.log` |
-| Variables de entorno no cargadas | `.env` no existe o tiene errores | Verificar que copiaste `.env.example` a `.env` y rellenaste los valores |
+| `NoHostAvailable` | Cassandra no corre | Andre: `docker start cassandra-node-1 cassandra-node-2 cassandra-node-3` |
+| `TcpTestSucceeded: False` / `nc failed` | WireGuard o Docker caído | Verificar WireGuard y contenedores |
+| `ServiceUnavailable` en Neo4j | Neo4j no corre | Víctor: `docker start neo4j-instance` |
+| `spark-submit no encontrado` | Spark no está en PATH | Regina: agregar Spark al PATH (ver sección de Regina) |
+| `Batch size exceeding threshold` | Batch muy grande | Andre: reducir `BATCH_SIZE = 5` en `opensky_to_cassandra.py` |
+| `WriteTimeout` | Sobrecarga en Cassandra | Andre: reducir `BATCH_SIZE = 5` |
+| Config muestra IPs incorrectas | `.env` mal configurado | Revisar `.env` — debe estar en la raíz del repo |
+| API da `403 Forbidden` | Key incorrecta | Fernanda: verificar `api/keys.json` |
+| Neo4j vacío tras Spark | Job de Spark falló | Regina: revisar logs |
