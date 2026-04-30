@@ -1680,3 +1680,27 @@ Configuración activa:
   Neo4j     : bolt://localhost:7687
   Spark     : local[*]
 ──────────────────────────────────────────────────
+2026-04-29 13:30:23,501  INFO      opensky_ingesta — ============================================================
+2026-04-29 13:30:23,502  INFO      opensky_ingesta — OpenSky → Cassandra ingesta arrancando
+2026-04-29 13:30:23,502  INFO      opensky_ingesta —   Intervalo : 20s
+2026-04-29 13:30:23,503  INFO      opensky_ingesta —   Batch size: 10
+2026-04-29 13:30:23,503  INFO      opensky_ingesta —   BBox      : mundo completo
+2026-04-29 13:30:23,503  INFO      opensky_ingesta — ============================================================
+C:\Users\LARIG\OneDrive\Desktop\ITAM\Semestre_4\Bases_no_relacionales\Bases-no-relacionales-Equipo-3\ingesta\opensky_to_cassandra.py:164: DeprecationWarning: Legacy execution parameters will be removed in 4.0. Consider using execution profiles.
+  cluster = Cluster(
+2026-04-29 13:30:23,529  WARNING   opensky_ingesta — Downgrading core protocol version from 66 to 65 for 127.0.0.1:9041. To avoid this, it is best practice to explicitly set Cluster(protocol_version) to the version supported by your cluster. https://docs.datastax.com/en/developer/python-driver/latest/api/cassandra/cluster.html#cassandra.cluster.Cluster.protocol_version
+2026-04-29 13:30:23,698  WARNING   opensky_ingesta — Downgrading core protocol version from 65 to 5 for 127.0.0.1:9041. To avoid this, it is best practice to explicitly set Cluster(protocol_version) to the version supported by your cluster. https://docs.datastax.com/en/developer/python-driver/latest/api/cassandra/cluster.html#cassandra.cluster.Cluster.protocol_version
+2026-04-29 13:30:24,078  INFO      opensky_ingesta — New Cassandra host <Host: 10.15.20.18:9042 dc1> discovered
+2026-04-29 13:30:24,078  INFO      opensky_ingesta — New Cassandra host <Host: 10.15.20.18:9043 dc1> discovered
+2026-04-29 13:30:24,079  INFO      opensky_ingesta — Cassandra host ::1:9041 removed
+2026-04-29 13:30:26,073  INFO      opensky_ingesta — Conectado a Cassandra: cassandra-cluster.rgorosti.vpn.itam.mx
+2026-04-29 13:30:26,351  INFO      opensky_ingesta — Tabla 'opensky.state_vectors' lista.
+2026-04-29 13:30:27,582  INFO      opensky_ingesta — Token OAuth2 renovado (expira en 1800s).
+2026-04-29 13:30:57,868  INFO      opensky_ingesta — Detenido. Total insertado: 0 filas.
+2026-04-29 13:30:57,870  INFO      opensky_ingesta — Conexión Cassandra cerrada.
+──────────────────────────────────────────────────
+Configuración activa:
+  Cassandra : localhost:9041 (keyspace: opensky)
+  Neo4j     : bolt://localhost:7687
+  Spark     : local[*]
+──────────────────────────────────────────────────

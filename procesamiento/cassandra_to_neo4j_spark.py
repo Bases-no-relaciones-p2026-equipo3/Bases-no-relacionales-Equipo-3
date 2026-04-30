@@ -37,25 +37,23 @@ from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.types import DoubleType, IntegerType
 from pyspark.sql.window import Window
 from neo4j import GraphDatabase
+from pathlib import Path
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-CASSANDRA_HOST     = "10.15.20.18"
-CASSANDRA_PORT     = 9041
-CASSANDRA_USER     = "cassandra"
-CASSANDRA_PASSWORD = "cassandra"
-CASSANDRA_KEYSPACE = "opensky"
+# ── Importar infraestructura desde config.py ──────────────────────────────────
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import (
+    CASSANDRA_HOST, CASSANDRA_PORT, CASSANDRA_USER, CASSANDRA_PASSWORD, CASSANDRA_KEYSPACE,
+    NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
+    SPARK_MASTER, SPARK_DRIVER_MEM, SPARK_EXEC_MEM
+)
+
+# ── Configuración específica de Spark y lógica de negocio ─────────────────────
 CASSANDRA_TABLE    = "state_vectors"
 CASSANDRA_AIRPORTS = "airports"
 CASSANDRA_EVENTS   = "flight_events"
 
-NEO4J_URI = "bolt://10.15.20.X:7687"   # reemplaza X con la IP real
-NEO4J_USER     = "neo4j"
-NEO4J_PASSWORD = "password"
-
-SPARK_APP_NAME   = "opensky-cassandra-to-neo4j-v2"
-SPARK_MASTER     = "spark://spark-master.rgorosti.vpn.itam.mx:6077"
-SPARK_DRIVER_MEM = "2g"
-SPARK_EXEC_MEM   = "2g"
+SPARK_APP_NAME     = "opensky-cassandra-to-neo4j-v2"
 
 NEAR_RADIUS_KM    = 50    # radio para relaciones NEAR entre aeronaves
 AIRPORT_RADIUS_KM = 15    # radio máximo para asignar aeropuerto a un evento

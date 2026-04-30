@@ -8,7 +8,7 @@ OpenSky API → Cassandra → Spark → Neo4j → FastAPI
 ```
 
 Cualquier integrante puede tomar cualquier rol. Solo hay que ajustar
-las IPs en los scripts según quién haga qué en cada sesión.
+el `.env` según quién haga qué en cada sesión. No se tocan IPs dentro de los scripts.
 
 ---
 
@@ -51,7 +51,7 @@ git pull
 uv sync
 ```
 
-- [ ] Definir quién toma cada rol y anotar sus IPs:
+- [ ] Definir quién toma cada rol al inicio de la sesión y anotar sus IPs:
 
 ```
 Rol A (Cassandra + Ingesta) → ____________  IP: 10.15.20.___
@@ -59,6 +59,15 @@ Rol B (Neo4j)               → ____________  IP: 10.15.20.___
 Rol C (Spark)               → ____________  IP: 10.15.20.___
 Rol D (API)                 → ____________  IP: 10.15.20.___
 ```
+
+- [ ] Cada integrante crea su `.env` con las IPs de la tabla de arriba (ver sección de cada Rol):
+
+```powershell
+copy .env.example .env
+# Editar .env con los valores de tu rol
+```
+
+> `config.py` carga el `.env` automáticamente. No es necesario editar ningún script.
 
 ---
 
@@ -76,6 +85,23 @@ Rol D (API)                 → ____________  IP: 10.15.20.___
 ---
 
 ## Rol A — Cassandra + Ingesta
+
+### Configurar tu `.env`
+
+```env
+OPENSKY_CLIENT_ID     = tu-client-id
+OPENSKY_CLIENT_SECRET = tu-client-secret
+
+CASSANDRA_HOST     = localhost       # Cassandra corre en tu propia máquina
+CASSANDRA_PORT     = 9041
+CASSANDRA_USER     = cassandra
+CASSANDRA_PASSWORD = cassandra
+
+NEO4J_HOST     = <IP_ROL_B>         # IP de quien tenga Neo4j
+NEO4J_PORT     = 7687
+NEO4J_USER     = neo4j
+NEO4J_PASSWORD = password
+```
 
 ### Paso 1 — Levantar Cassandra
 
@@ -96,36 +122,24 @@ Avisar al equipo que Cassandra está lista.
 
 > Solo necesario la primera vez o si se hizo un reset completo.
 
-Antes de correr, verificar que `setup/cassandra_schema_migration.py` tenga:
-
-```python
-CASSANDRA_NODE_IPS = ["localhost"]   # ← siempre localhost para Rol A
-CASSANDRA_PORT     = 9041
-```
-
-Y que `setup/neo4j_setup_indexes.py` tenga:
-
-```python
-NEO4J_URI = "bolt://<IP_ROL_B>:7687"   # ← IP de quien tenga Rol B
-```
-
-Correr en orden:
-
 ```powershell
 uv run python setup/cassandra_schema_migration.py
 uv run python setup/load_airports.py
 uv run python setup/neo4j_setup_indexes.py
 ```
 
-### Paso 3 — Correr ingesta
-
-Verificar `ingesta/opensky_to_cassandra.py`:
-
-```python
-CASSANDRA_NODE_IPS = ["localhost"]   # ← siempre localhost para Rol A
-CASSANDRA_PORT     = 9041
-BATCH_SIZE         = 10             # no subir de 10
+Salida esperada:
 ```
+✅ Keyspace 'opensky' listo.
+✅ Tabla 'flight_events' lista.
+✅ Tabla 'airports' lista.
+✅ 4,963 aeropuertos cargados en 6.3s
+✅ Setup de Neo4j completado.
+```
+
+> Si `neo4j_setup_indexes.py` falla, Rol B aún no levantó Neo4j. Esperar y volver a correr solo ese script.
+
+### Paso 3 — Correr ingesta
 
 ```powershell
 uv run python ingesta/opensky_to_cassandra.py
@@ -142,13 +156,27 @@ Avisar a Rol C cuando lleven **al menos 5 minutos** corriendo.
 
 | Error | Solución |
 |---|---|
-| `Batch size exceeding threshold` | Reducir `BATCH_SIZE = 5` |
+| `Batch size exceeding threshold` | Reducir `BATCH_SIZE = 5` en `opensky_to_cassandra.py` |
 | `WriteTimeout` | Reducir `BATCH_SIZE = 5` |
 | Nodos no aparecen como `healthy` | Esperar 60s más y volver a verificar |
 
 ---
 
 ## Rol B — Neo4j
+
+### Configurar tu `.env`
+
+```env
+CASSANDRA_HOST     = <IP_ROL_A>     # IP de quien tenga Cassandra
+CASSANDRA_PORT     = 9041
+CASSANDRA_USER     = cassandra
+CASSANDRA_PASSWORD = cassandra
+
+NEO4J_HOST     = localhost           # Neo4j corre en tu propia máquina
+NEO4J_PORT     = 7687
+NEO4J_USER     = neo4j
+NEO4J_PASSWORD = password
+```
 
 ### Paso 1 — Levantar Neo4j
 
@@ -192,6 +220,27 @@ MATCH (n) DETACH DELETE n
 
 ## Rol C — Spark + Orquestador
 
+### Configurar tu `.env`
+
+```env
+CASSANDRA_HOST     = <IP_ROL_A>     # IP de quien tenga Cassandra
+CASSANDRA_PORT     = 9041
+CASSANDRA_USER     = cassandra
+CASSANDRA_PASSWORD = cassandra
+
+NEO4J_HOST     = <IP_ROL_B>         # IP de quien tenga Neo4j
+NEO4J_PORT     = 7687
+NEO4J_USER     = neo4j
+NEO4J_PASSWORD = password
+
+SPARK_MASTER     = local[*]
+SPARK_DRIVER_MEM = 2g
+SPARK_EXEC_MEM   = 2g
+```
+
+> Si Rol C y Rol A son la misma persona: `CASSANDRA_HOST = localhost`
+> Si Rol C y Rol B son la misma persona: `NEO4J_HOST = localhost`
+
 ### Paso 1 — Verificar conectividad
 
 ```powershell
@@ -201,33 +250,7 @@ Test-NetConnection -ComputerName <IP_ROL_B> -Port 7687   # Neo4j
 
 Ambos deben dar `TcpTestSucceeded: True`.
 
-### Paso 2 — Ajustar configuración
-
-**`procesamiento/cassandra_to_neo4j_spark.py`:**
-
-```python
-CASSANDRA_HOST  = "<IP_ROL_A>"              # IP de quien tenga Cassandra
-CASSANDRA_PORT  = 9041
-NEO4J_URI       = "bolt://<IP_ROL_B>:7687"  # IP de quien tenga Neo4j
-NEO4J_USER      = "neo4j"
-NEO4J_PASSWORD  = "password"
-NEO4J_OVERWRITE = True
-```
-
-**`pipeline_orchestrator.py`:**
-
-```python
-CASSANDRA_NODE_IPS = ["<IP_ROL_A>"]             # IP de quien tenga Cassandra
-CASSANDRA_PORT     = 9041
-NEO4J_URI          = "bolt://<IP_ROL_B>:7687"   # IP de quien tenga Neo4j
-NEO4J_USER         = "neo4j"
-NEO4J_PASSWORD     = "password"
-```
-
-> Si Rol C y Rol A son la misma persona, usar `localhost` en lugar de la IP.
-> Si Rol C y Rol B son la misma persona, usar `bolt://localhost:7687`.
-
-### Paso 3 — Correr el orquestador
+### Paso 2 — Correr el orquestador
 
 > ⚠️ Esperar confirmación de Rol A de que la ingesta lleva al menos 5 minutos.
 
@@ -253,42 +276,39 @@ Job Spark completado exitosamente.
 Próximo job Spark en 5 min.
 ```
 
-### Monitorear logs
-
-```powershell
-# Spark
-Get-Content logs/spark.log -Wait -Tail 30
-
-# Ingesta (corre en paralelo desde el orquestador)
-Get-Content logs/ingesta.log -Wait -Tail 20
-```
-
 ### Si spark-submit no se encuentra
-
-Spark no está en el PATH. Agregarlo:
 
 ```powershell
 $env:PATH += ";C:\spark\bin"   # ajustar a tu ruta de instalación
 spark-submit --version         # verificar
 ```
 
+### Monitorear logs
+
+```powershell
+Get-Content logs/spark.log   -Wait -Tail 30
+Get-Content logs/ingesta.log -Wait -Tail 20
+```
+
 ---
 
 ## Rol D — API + Análisis
 
-### Paso 1 — Ajustar configuración
+### Configurar tu `.env`
 
-**`api/queries.py`:**
+```env
+CASSANDRA_HOST     = <IP_ROL_A>     # IP de quien tenga Cassandra
+CASSANDRA_PORT     = 9041
 
-```python
-NEO4J_URI      = "bolt://<IP_ROL_B>:7687"   # IP de quien tenga Neo4j
-NEO4J_USER     = "neo4j"
-NEO4J_PASSWORD = "password"
+NEO4J_HOST     = <IP_ROL_B>         # IP de quien tenga Neo4j
+NEO4J_PORT     = 7687
+NEO4J_USER     = neo4j
+NEO4J_PASSWORD = password
 ```
 
-> Si Rol D y Rol B son la misma persona, usar `bolt://localhost:7687`.
+> Si Rol D y Rol B son la misma persona: `NEO4J_HOST = localhost`
 
-### Paso 2 — Crear API keys
+### Paso 1 — Crear API keys
 
 Generar una key por integrante:
 
@@ -309,7 +329,7 @@ Crear `api/keys.json`:
 
 > `api/keys.json` está en `.gitignore` — compartir las keys por otro medio (WhatsApp, etc.).
 
-### Paso 3 — Levantar la API
+### Paso 2 — Levantar la API
 
 ```powershell
 cd api
@@ -322,7 +342,7 @@ La API queda disponible para todo el equipo en:
 http://<IP_ROL_D>:8000/docs
 ```
 
-### Paso 4 — Probar
+### Paso 3 — Probar
 
 ```powershell
 $KEY = "sk-nombre-TU_KEY"
@@ -337,7 +357,7 @@ curl -H "X-API-Key: $KEY" "$API/analytics/top-routes?limit=10"
 
 ## Tabla de configuración rápida
 
-Al inicio de cada sesión, llenar esta tabla y compartirla con el equipo:
+Llenar al inicio de cada sesión y compartir con el equipo:
 
 ```
 Rol A (Cassandra) → nombre: ________  IP: 10.15.20.___
@@ -346,7 +366,7 @@ Rol C (Spark)     → nombre: ________  IP: 10.15.20.___
 Rol D (API)       → nombre: ________  IP: 10.15.20.___
 ```
 
-Luego cada quien reemplaza `<IP_ROL_X>` en sus scripts con los valores de la tabla.
+Con esa tabla, cada quien rellena su `.env` y ya puede correr cualquier script sin más cambios.
 
 ---
 
@@ -362,4 +382,5 @@ Luego cada quien reemplaza `<IP_ROL_X>` en sus scripts con los valores de la tab
 | `WriteTimeout` | Sobrecarga en Cassandra | Rol A: `BATCH_SIZE = 5` |
 | Neo4j vacío tras Spark | Job de Spark falló | Rol C: revisar `logs/spark.log` |
 | `403 Forbidden` en API | Key incorrecta | Rol D: verificar `api/keys.json` |
-| Neo4j tiene datos de otro proyecto | Datos de sesión anterior | Rol B: `MATCH (n) DETACH DELETE n` en Neo4j browser |
+| Neo4j tiene datos de otra sesión | Reset no ocurrió | Rol B: `MATCH (n) DETACH DELETE n` en Neo4j browser |
+| Variables de entorno no cargadas | `.env` no existe o tiene errores | Verificar que copiaste `.env.example` a `.env` y rellenaste los valores |
