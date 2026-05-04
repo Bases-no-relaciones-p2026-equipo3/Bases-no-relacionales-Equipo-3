@@ -164,16 +164,23 @@ BASES-NO-RELACIONALES-EQUIPO-3/
 │
 ├── Documentacion/                  ← Documentación operativa interna del equipo
 │   ├── README.md
-│   ├── INSTRUCTIVO_DESPLIEGUE.md
-│   └── INSTRUCTIVO_ROLES_INTERCAMBIABLES.md
+│   ├── ARQUITECTURA_TECNICA.md
+│   └── COMO_CORRER.md
 │
 ├── infra/                          ← Configuración de infraestructura
 │   ├── cassandra/
 │   │   ├── cassandra.yaml
-│   │   └── cassandra-rackdc.properties
-│   └── docker/
-│       ├── dockerfile.spark-jupyter
-│       └── dockerfile.spark-job-venv
+│   │   └── cassandra-cluster.docker-compose.ylm
+│   │   └──cassandra-rackdc.properties
+│   │   └──cassandra_infra.ipynb
+│   ├── neo4j/
+│   |    ├── neo4j.docker-compose.yml
+│   |    └── neo4j_infra.ipynb
+│   └── spark/
+│       ├── dockerfile.spark-job-venv
+│       ├──dockerfile.spark-jupyter
+│       ├── spark-cluster.docker-compose.yml
+│       └──spark_infra.ipynb
 │
 ├── setup/                          ← Scripts que se corren una sola vez al inicio
 │   ├── cassandra_schema_migration.py
