@@ -51,9 +51,18 @@ logger = logging.getLogger("opensky_ingesta")
 # CONFIGURACIÓN
 # ═════════════════════════════════════════════════════════════════════════════
 
-# ── OpenSky OAuth2 — preferir .env sobre hardcode ────────────────────────────
-OPENSKY_CLIENT_ID     = os.getenv("OPENSKY_CLIENT_ID",     "ric78-api-client")
-OPENSKY_CLIENT_SECRET = os.getenv("OPENSKY_CLIENT_SECRET", "2qQQJF4zlMd9cqBqgLMYy9A9o13zjTdU")
+# ── OpenSky OAuth2 — requiere OPENSKY_CLIENT_ID y OPENSKY_CLIENT_SECRET en .env ─
+OPENSKY_CLIENT_ID     = os.getenv("OPENSKY_CLIENT_ID")
+OPENSKY_CLIENT_SECRET = os.getenv("OPENSKY_CLIENT_SECRET")
+
+if not OPENSKY_CLIENT_ID or not OPENSKY_CLIENT_SECRET:
+    raise EnvironmentError(
+        "Faltan credenciales de OpenSky en el .env:\n"
+        "  OPENSKY_CLIENT_ID     = tu-client-id\n"
+        "  OPENSKY_CLIENT_SECRET = tu-client-secret\n"
+        "Obtén las tuyas en: https://opensky-network.org/my-opensky"
+    )
+
 
 OPENSKY_TOKEN_URL = (
     "https://auth.opensky-network.org/auth/realms/opensky-network"

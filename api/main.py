@@ -9,15 +9,25 @@ Arrancar (desarrollo):
 Arrancar (producción):
     uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
 
-Probar con curl:
-    curl -H "X-API-Key: sk-juan-abc123xyz" http://10.0.0.1:8000/analytics/top-countries
+Probar con curl (reemplaza <IP> con tu IP WireGuard):
+    curl -H "X-API-Key: sk-nombre-..." http://<IP>:8000/analytics/top-countries
 
 Documentación interactiva (Swagger):
-    http://10.0.0.1:8000/docs
+    http://<IP>:8000/docs
 """
 
 import logging
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+# Asegura que tanto api/ (para auth, queries) como la raíz (para config)
+# estén en el path, sin importar desde dónde se lance uvicorn.
+_API_DIR  = Path(__file__).parent
+_ROOT_DIR = _API_DIR.parent
+for _p in [str(_API_DIR), str(_ROOT_DIR)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +42,7 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
 )
 logger = logging.getLogger(__name__)
+
 
 
 # ── Lifespan (init / teardown del driver Neo4j) ───────────────────────────────

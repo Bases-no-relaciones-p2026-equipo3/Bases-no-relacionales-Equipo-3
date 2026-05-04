@@ -50,6 +50,75 @@ INGESTA_SCRIPT = ROOT_DIR / "ingesta"       / "opensky_to_cassandra.py"
 SPARK_SCRIPT   = ROOT_DIR / "procesamiento" / "cassandra_to_neo4j_spark.py"
 LOGS_DIR       = ROOT_DIR / "logs"
  
+# ── Resolver spark-submit desde el venv si no está en el PATH del sistema ────
+def _resolve_spark_submit() -> str:
+    """Busca spark-submit en el venv actual antes de recurrir al PATH global."""
+    candidates = [
+        Path(sys.executable).parent / "spark-submit.cmd",   # Windows venv
+        Path(sys.executable).parent / "spark-submit",        # Linux/Mac venv
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return "spark-submit"  # último recurso: PATH global
+ 
+SPARK_SUBMIT = _resolve_spark_submit()
+ 
+# ── Auto-configurar JAVA_HOME si no está definido ─────────────────────────────
+def _ensure_spark_env():
+    """Configura JAVA_HOME y SPARK_HOME si no están ya definidos."""
+    # JAVA_HOME — busca JDK local compatible
+    if not os.environ.get("JAVA_HOME"):
+        candidates = [
+            Path(r"C:\Program Files\Java\jdk-23"),
+            Path(r"C:\Program Files\Java\jdk-17"),
+            Path(r"C:\Program Files\Eclipse Adoptium\jdk-17.0.11.9-hotspot"),
+        ]
+        for c in candidates:
+            if c.exists():
+                os.environ["JAVA_HOME"] = str(c)
+                break
+ 
+    # SPARK_HOME — usa el pyspark instalado en el venv
+    if not os.environ.get("SPARK_HOME"):
+        try:
+            import pyspark
+            spark_home = str(Path(pyspark.__file__).parent)
+            os.environ["SPARK_HOME"] = spark_home
+        except ImportError:
+            pass  # pyspark no instalado; fallará más adelante con buen mensaje
+ 
+# ── Validar versión de PySpark ────────────────────────────────────────────────
+REQUIRED_PYSPARK = "3.5.1"
+ 
+def _check_pyspark_version():
+    """
+    Verifica que pyspark==3.5.1 esté instalado.
+ 
+    Los conectores de Cassandra y Neo4j están compilados para Spark 3.x / Scala 2.12.
+    Spark 4.x usa Scala 2.13 e introduce incompatibilidades binarias que producen:
+        java.lang.NoSuchMethodError: scala.jdk.CollectionConverters$...
+    """
+    try:
+        import pyspark
+        version = pyspark.__version__
+        if version != REQUIRED_PYSPARK:
+            logger.error("=" * 65)
+            logger.error(f"  VERSION DE PYSPARK INCORRECTA: {version}")
+            logger.error(f"  Se requiere pyspark=={REQUIRED_PYSPARK} (Scala 2.12).")
+            logger.error(f"  Spark {version} puede ser Scala 2.13 — incompatible con")
+            logger.error("  los conectores de Cassandra y Neo4j del proyecto.")
+            logger.error("")
+            logger.error("  Para corregir:")
+            logger.error("      uv remove pyspark")
+            logger.error(f"      uv add pyspark=={REQUIRED_PYSPARK}")
+            logger.error("=" * 65)
+            sys.exit(1)
+        logger.info(f"PySpark {version} (Scala 2.12) ✅")
+    except ImportError:
+        logger.error("pyspark no está instalado. Ejecuta: uv add pyspark==3.5.1")
+        sys.exit(1)
+ 
 # ═════════════════════════════════════════════════════════════════════════════
 # LOGGING
 # ═════════════════════════════════════════════════════════════════════════════
@@ -186,9 +255,19 @@ def run_spark_loop(stop_event: Event):
         log_file.flush()
  
         try:
+            logger.info(f"Usando spark-submit: {SPARK_SUBMIT}")
+            # --master se pasa explícitamente para que Spark lo procese
+            # antes de ejecutar el script (requerido en modo cluster remoto)
+            cmd = [
+                SPARK_SUBMIT,
+                "--master",   SPARK_MASTER,
+                "--packages", SPARK_PACKAGES,
+                str(SPARK_SCRIPT),
+            ]
             proc = subprocess.Popen(
-                ["spark-submit", "--packages", SPARK_PACKAGES, str(SPARK_SCRIPT)],
+                cmd,
                 stdout=log_file, stderr=log_file,
+                env=os.environ.copy(),
             )
             logger.info(f"Spark PID {proc.pid}.")
  
@@ -207,7 +286,7 @@ def run_spark_loop(stop_event: Event):
                 logger.warning(f"Job Spark terminó con código {rc}. Ver logs/spark.log.")
  
         except FileNotFoundError:
-            logger.error("'spark-submit' no encontrado. Agregar $SPARK_HOME/bin al PATH.")
+            logger.error(f"'spark-submit' no encontrado en: {SPARK_SUBMIT}. Revisa que pyspark esté instalado en el venv.")
         except Exception as e:
             logger.error(f"Error inesperado: {e}")
  
@@ -223,7 +302,10 @@ def run_spark_loop(stop_event: Event):
 # ═════════════════════════════════════════════════════════════════════════════
  
 def main():
-    os.environ["PYTHONUTF8"] = "1" # <--- ¡Agrega esta línea!
+    os.environ["PYTHONUTF8"] = "1"
+    _ensure_spark_env()              # auto-detecta JAVA_HOME y SPARK_HOME si faltan
+    _check_pyspark_version()         # falla rápido si pyspark != 3.5.1
+    logger.info(f"spark-submit resuelto en: {SPARK_SUBMIT}")
     print_config()
     reset_databases()
  

@@ -45,7 +45,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import (
     CASSANDRA_HOST, CASSANDRA_PORT, CASSANDRA_USER, CASSANDRA_PASSWORD, CASSANDRA_KEYSPACE,
     NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD,
-    SPARK_MASTER, SPARK_DRIVER_MEM, SPARK_EXEC_MEM
+    SPARK_MASTER, SPARK_DRIVER_MEM, SPARK_EXEC_MEM, SPARK_DRIVER_HOST
 )
 
 # ── Configuración específica de Spark y lógica de negocio ─────────────────────
@@ -67,7 +67,7 @@ BATCH_ID = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 # ── SparkSession ──────────────────────────────────────────────────────────────
 def build_spark():
-    return (
+    builder = (
         SparkSession.builder
         .appName(SPARK_APP_NAME)
         .master(SPARK_MASTER)
@@ -80,8 +80,12 @@ def build_spark():
         .config("spark.cassandra.auth.password",             CASSANDRA_PASSWORD)
         .config("spark.cassandra.input.split.size_in_mb",   "64")
         .config("spark.cassandra.input.fetch.size_in_rows", "5000")
-        .getOrCreate()
     )
+    # En modo cluster remoto el driver debe anunciarse con su IP real
+    # para que los workers puedan devolverle los resultados.
+    if SPARK_DRIVER_HOST:
+        builder = builder.config("spark.driver.host", SPARK_DRIVER_HOST)
+    return builder.getOrCreate()
 
 
 # ── Lectura desde Cassandra ───────────────────────────────────────────────────

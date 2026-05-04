@@ -1,0 +1,200 @@
+# Cómo correr el proyecto
+
+Pipeline de tráfico aéreo en tiempo real: OpenSky → Cassandra → Spark → Neo4j → FastAPI
+
+---
+
+## Prerequisitos
+
+| Herramienta | Versión requerida | Notas |
+|---|---|---|
+| Python | ≥ 3.13 | Administrado con `uv` |
+| **PySpark** | **== 3.5.1** | Ver advertencia abajo |
+| Java (JDK) | 17 ó 23 | Requerido por Spark |
+| Docker | Cualquier versión reciente | Para Cassandra y Neo4j |
+| `uv` | Cualquier versión reciente | `pip install uv` |
+
+> [!CAUTION]
+> **Usa exactamente `pyspark==3.5.1` — no instales Spark 4.x.**
+>
+> Los conectores del proyecto están compilados para **Spark 3.x / Scala 2.12**:
+> ```
+> com.datastax.spark:spark-cassandra-connector_2.12:3.5.1
+> org.neo4j:neo4j-connector-apache-spark_2.12:5.3.2_for_spark_3
+> ```
+> Spark 4.x usa **Scala 2.13** e introduce incompatibilidades binarias que producen el error:
+> ```
+> java.lang.NoSuchMethodError: scala.jdk.CollectionConverters$.mapAsScalaMapConverter
+> ```
+> Si usas `brew install apache-spark` en macOS obtendrás Spark 4.1.1 — **no lo uses para correr el pipeline**. Usa siempre el `spark-submit` del ambiente virtual del proyecto.
+
+---
+
+## Paso 1 — Instalar el ambiente virtual
+
+```bash
+# Desde la raíz del repositorio
+uv sync
+```
+
+Si ya tienes `pyspark` instalado con una versión incorrecta:
+
+```bash
+uv remove pyspark
+uv add "pyspark==3.5.1"
+```
+
+---
+
+## Paso 2 — Verificar que Spark es la versión correcta
+
+```bash
+# macOS / Linux
+source .venv/bin/activate
+export PATH="$PWD/.venv/bin:$PATH"
+
+which spark-submit       # debe apuntar a .venv/bin/spark-submit
+spark-submit --version   # debe mostrar: version 3.5.1, Using Scala version 2.12...
+python -c "import pyspark; print(pyspark.__version__)"   # debe imprimir: 3.5.1
+```
+
+```powershell
+# Windows (PowerShell)
+.\.venv\Scripts\activate
+python -c "import pyspark; print(pyspark.__version__)"   # debe imprimir: 3.5.1
+```
+
+> [!NOTE]
+> El orquestador (`pipeline_orchestrator.py`) valida la versión al arrancar y termina con un mensaje claro si detecta una versión incorrecta. No es necesario verificarlo manualmente cada vez.
+
+---
+
+## Paso 3 — Configurar variables de entorno
+
+Copia la plantilla y edítala con las IPs y credenciales de tu sesión:
+
+```bash
+# macOS / Linux
+cp env.example .env
+
+# Windows
+copy env.example .env
+```
+
+El archivo `.env` **nunca se sube al repositorio** (está en `.gitignore`). Cada integrante del equipo configura su propio `.env` según su rol. Consulta `Documentacion/INSTRUCTIVO_DESPLIEGUE.md` para los valores correctos por rol e IP WireGuard.
+
+---
+
+## Paso 4 — Inicializar las bases de datos (solo la primera vez)
+
+> Solo es necesario correr este paso la primera vez, o después de un reset completo de datos.
+
+```bash
+# 1. Crear tablas en Cassandra y cargar catálogo de aeropuertos (~5,000 aeropuertos)
+uv run python setup/cassandra_schema_migration.py
+uv run python setup/load_airports.py
+
+# 2. Crear constraints e índices en Neo4j
+uv run python setup/neo4j_setup_indexes.py
+```
+
+Salida esperada al finalizar:
+```
+✅ Keyspace 'opensky' listo.
+✅ Tabla 'state_vectors' lista.
+✅ Tabla 'flight_events' lista.
+✅ Tabla 'airports' lista.
+✅ 4,963 aeropuertos cargados.
+✅ Setup de Neo4j completado.
+```
+
+---
+
+## Paso 5 — Correr el pipeline
+
+Con Cassandra y Neo4j activos (Docker), ejecutar desde la raíz del repositorio:
+
+```bash
+uv run python pipeline_orchestrator.py
+```
+
+El orquestador al arrancar:
+1. Valida que `pyspark==3.5.1` esté instalado (falla rápido si no).
+2. Limpia `state_vectors` y `flight_events` en Cassandra, y todos los nodos en Neo4j.
+3. Lanza en paralelo dos hilos:
+   - **Ingesta** — polling a OpenSky cada 20 s → inserta en Cassandra (corre de forma continua).
+   - **Spark** — espera 5 min, luego lanza `spark-submit` periódicamente para procesar Cassandra → Neo4j.
+
+Detener con `Ctrl+C` para un cierre limpio.
+
+---
+
+## Paso 6 — Levantar la API (opcional)
+
+Una vez que el pipeline lleva al menos un ciclo de Spark (≥ 5 min), la API puede servir consultas.
+
+Desde la **raíz del repositorio** (no desde `api/`):
+
+```bash
+uv run uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Swagger UI disponible en `http://<tu-IP-WireGuard>:8000/docs`.
+
+> [!NOTE]
+> No uses `cd api && uvicorn main:app` — el path de `config.py` se resuelve
+> relativo al archivo, así que funciona desde cualquier directorio.
+> Las dependencias de `api/requirements.txt` ya están incluidas en el venv raíz;
+> no es necesario instalarlas por separado.
+
+Antes de levantarla, crea el archivo `api/keys.json`:
+
+```bash
+# Genera una key por integrante (ejecutar una vez por persona)
+python -c "import secrets; print('sk-nombre-' + secrets.token_urlsafe(24))"
+```
+
+```json
+{
+  "andre":    "sk-andre-...",
+  "victor":   "sk-victor-...",
+  "regina":   "sk-regina-...",
+  "fernanda": "sk-fernanda-..."
+}
+```
+
+`keys.json` **no se sube al repo** (está en `.gitignore`). Distribúyelas por WhatsApp.
+
+---
+
+## Monitoreo de logs en tiempo real
+
+```bash
+# macOS / Linux
+tail -f logs/orchestrator.log
+tail -f logs/ingesta.log
+tail -f logs/spark.log
+```
+
+```powershell
+# Windows
+Get-Content logs\orchestrator.log -Wait -Tail 30
+Get-Content logs\ingesta.log      -Wait -Tail 20
+Get-Content logs\spark.log        -Wait -Tail 50
+```
+
+---
+
+## Resolución de problemas rápida
+
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| `VERSION DE PYSPARK INCORRECTA` al arrancar | Spark 4.x instalado | `uv remove pyspark && uv add pyspark==3.5.1` |
+| `NoHostAvailable` | Cassandra no corre | `docker start cassandra-node-1 cassandra-node-2 cassandra-node-3` |
+| `ServiceUnavailable` en Neo4j | Neo4j no corre | `docker start neo4j-instance` |
+| Job Spark termina con código ≠ 0 | Error interno del job | Revisar `logs/spark.log` |
+| Neo4j vacío después de Spark | Problema de red Docker | Verificar que los contenedores Spark están en las redes `cassandra-net` y `neo4j-net` |
+| `WriteTimeout` en Cassandra | Sobrecarga de batch | Reducir `BATCH_SIZE = 5` en `ingesta/opensky_to_cassandra.py` |
+| API da `403 Forbidden` | Key incorrecta | Verificar `api/keys.json` |
+
+Para problemas de despliegue distribuido (WireGuard, IPs, roles), ver `INSTRUCTIVO_DESPLIEGUE.md`.

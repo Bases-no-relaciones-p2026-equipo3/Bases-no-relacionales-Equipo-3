@@ -26,9 +26,11 @@ Documentación y recursos oficiales:
   https://github.com/openskynetwork/opensky-api
 
 
+
 ---
 
 ## Descripción del stream de datos
+
 
 El stream de datos utilizado en este proyecto proviene de la **OpenSky Network**, una red global de sensores que recolecta información transmitida por aeronaves mediante tecnología **ADS-B (Automatic Dependent Surveillance–Broadcast)** y **Mode-S**. Estas señales son emitidas periódicamente por los transpondedores de los aviones y contienen información sobre su estado de vuelo.
 

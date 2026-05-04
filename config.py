@@ -30,6 +30,10 @@ CASSANDRA_USER     = os.getenv("CASSANDRA_USER",     "cassandra")
 CASSANDRA_PASSWORD = os.getenv("CASSANDRA_PASSWORD", "cassandra")
 CASSANDRA_KEYSPACE = "opensky"
 
+# Los 3 nodos del cluster Cassandra corren en la MISMA máquina (diferente puerto).
+# El driver se conecta a CASSANDRA_HOST:CASSANDRA_PORT y descubre los demás nodos
+# automáticamente vía gossip. En modo distribuido solo hay que cambiar CASSANDRA_HOST
+# a la IP WireGuard de la máquina que tiene Cassandra (Andre: 10.15.20.18).
 CASSANDRA_NODE_IPS = [CASSANDRA_HOST]
 
 # ── Neo4j ─────────────────────────────────────────────────────────────────────
@@ -45,12 +49,19 @@ SPARK_MASTER     = os.getenv("SPARK_MASTER",     "local[*]")
 SPARK_DRIVER_MEM = os.getenv("SPARK_DRIVER_MEM", "2g")
 SPARK_EXEC_MEM   = os.getenv("SPARK_EXEC_MEM",   "2g")
 
+# Host del driver Spark — necesario cuando SPARK_MASTER es un cluster remoto.
+# El driver debe anunciarse con una IP alcanzable desde los workers.
+# En modo local[*] no tiene efecto.
+SPARK_DRIVER_HOST = os.getenv("SPARK_DRIVER_HOST", "")
+
 
 def print_config():
     """Imprime la configuración activa — útil para verificar antes de correr."""
     print("─" * 50)
     print("Configuración activa:")
-    print(f"  Cassandra : {CASSANDRA_HOST}:{CASSANDRA_PORT} (keyspace: {CASSANDRA_KEYSPACE})")
+    print(f"  Cassandra : {','.join(CASSANDRA_NODE_IPS)}:{CASSANDRA_PORT} (keyspace: {CASSANDRA_KEYSPACE})")
     print(f"  Neo4j     : {NEO4J_URI}")
     print(f"  Spark     : {SPARK_MASTER}")
+    if SPARK_DRIVER_HOST:
+        print(f"  Driver IP : {SPARK_DRIVER_HOST}")
     print("─" * 50)

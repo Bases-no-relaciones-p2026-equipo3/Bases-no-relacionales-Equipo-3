@@ -2,6 +2,13 @@ name: spark-cluster
 networks:
     spark-cluster:
         driver: bridge
+    # Redes externas — permiten que los workers alcancen Cassandra y Neo4j
+    cassandra-net:
+        external: true
+        name: cassandra-cluster_cassandra-cluster
+    neo4j-net:
+        external: true
+        name: neo4j-compose_default
 services:
     spark-master:
         image: apache/spark:3.5.7-scala2.12-java17-python3-ubuntu
@@ -24,7 +31,8 @@ services:
         - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
-        hostname: spark-master.rgorosti.vpn.itam.mx
+        - cassandra-net
+        - neo4j-net
         ports:
         - 6080:6080
         - 6077:6077
@@ -69,7 +77,8 @@ services:
         - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
-        hostname: spark-jupyter.rgorosti.vpn.itam.mx
+        - cassandra-net
+        - neo4j-net
         ports:
         - 6888:6888
         - 4040:4040
@@ -114,6 +123,8 @@ services:
         - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
+        - cassandra-net
+        - neo4j-net
         hostname: spark-worker-1.rgorosti.vpn.itam.mx
         ports:
         - 6081:6081
@@ -163,6 +174,8 @@ services:
         - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
+        - cassandra-net
+        - neo4j-net
         hostname: spark-worker-2.rgorosti.vpn.itam.mx
         ports:
         - 6082:6082
@@ -214,6 +227,8 @@ services:
         - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
+        - cassandra-net
+        - neo4j-net
         hostname: spark-worker-3.rgorosti.vpn.itam.mx
         ports:
         - 6083:6083
