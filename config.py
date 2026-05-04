@@ -1,6 +1,6 @@
 """
 config.py
-─────────
+---------
 Carga centralizada de configuración desde variables de entorno o .env.
 
 Todos los scripts del pipeline importan desde aquí:
@@ -57,11 +57,11 @@ SPARK_DRIVER_HOST = os.getenv("SPARK_DRIVER_HOST", "")
 
 def print_config():
     """Imprime la configuración activa — útil para verificar antes de correr."""
-    print("─" * 50)
+    print("-" * 50)
     print("Configuración activa:")
     print(f"  Cassandra : {','.join(CASSANDRA_NODE_IPS)}:{CASSANDRA_PORT} (keyspace: {CASSANDRA_KEYSPACE})")
     print(f"  Neo4j     : {NEO4J_URI}")
     print(f"  Spark     : {SPARK_MASTER}")
     if SPARK_DRIVER_HOST:
         print(f"  Driver IP : {SPARK_DRIVER_HOST}")
-    print("─" * 50)
+    print("-" * 50)

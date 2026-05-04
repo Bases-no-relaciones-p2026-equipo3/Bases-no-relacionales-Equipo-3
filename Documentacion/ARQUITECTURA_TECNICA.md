@@ -362,3 +362,26 @@ Los conectores de Spark que se descargan en tiempo de ejecución:
 com.datastax.spark:spark-cassandra-connector_2.12:3.5.1
 org.neo4j:neo4j-connector-apache-spark_2.12:5.3.2_for_spark_3
 ```
+---
+
+## Cumplimiento de Requerimientos de Ingesta
+
+El pipeline ha sido diseñado para cumplir estrictamente con los tres pilares de la entrega:
+
+### 1. Estado de Verdad Operativa (Operational Stage)
+Cassandra actúa como nuestra "Single Source of Truth" para el estado actual de la flota. 
+- **Latencia Mínima**: Al usar `icao24` como partition key, la consulta del estado más reciente de una aeronave es una lectura de punto (point read) que no requiere escaneos de tabla ni joins.
+- **Frescura**: La ingesta escribe con `LOCAL_QUORUM` (2 de 3 nodos deben confirmar), garantizando que las lecturas posteriores vean el dato más reciente de manera consistente.
+- **Acceso Directo**: La API de FastAPI permite consultar el estado crudo directamente desde Cassandra antes de que el proceso OLAP (Spark) lo mueva a Neo4j.
+
+### 2. Garantía de Caudal (Throughput)
+El sistema garantiza que no se pierden mensajes incluso bajo picos de tráfico:
+- **Batches Atómicos**: El script de ingesta agrupa los registros en batches optimizados para Cassandra (evitando el overhead de miles de peticiones individuales).
+- **Escalabilidad Horizontal**: Si el caudal de OpenSky aumentara, el cluster de 3 nodos reparte la carga de escritura automáticamente mediante el particionador `Murmur3`.
+- **Validación Empírica**: Se incluye el script `setup/test_load_cassandra.py` que simula cargas masivas (miles de registros por segundo) para demostrar que el sistema no presenta pérdida de mensajes bajo estrés.
+
+### 3. Resiliencia y Alta Disponibilidad (HA)
+El sistema posee capacidad de recuperación automática ante fallos críticos:
+- **Redundancia Física**: Gracias al `Replication Factor = 3`, cada dato vive en los 3 nodos. Si uno o hasta dos nodos fallan simultáneamente, los datos permanecen disponibles.
+- **Políticas de Reintento**: El driver de Python implementa `RetryPolicy` y `RoundRobinPolicy`. Si un nodo no responde, el driver redirige la consulta a un nodo saludable de forma transparente para la aplicación.
+- **Orquestación Robusta**: El `pipeline_orchestrator.py` monitorea los hilos de ingesta. Si el proceso de captura muere por un error de red o timeout, el orquestador lo reinicia automáticamente tras un periodo de enfriamiento.

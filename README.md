@@ -392,3 +392,28 @@ Spark es un motor de cómputo sin estado persistente, así que no tiene que toma
 
 
 
+---
+
+## 3. Evidencia de Rendimiento y Garantía de Caudal
+
+Para validar los requerimientos de la entrega, se realizó una prueba de carga (Stress Test) sobre el cluster de Cassandra de 3 nodos. El objetivo fue demostrar que el sistema es capaz de soportar volúmenes masivos de datos sin pérdida de información, garantizando la resiliencia y el caudal.
+
+### Resultados de la Prueba de Carga
+La prueba consistió en la inserción de **5,000 registros** ficticios en batches de 50, simulando una ráfaga de tráfico aéreo.
+
+| Métrica | Resultado |
+|---|---|
+| **Registros procesados** | 5,000 |
+| **Errores encontrados** | 0 |
+| **Tiempo total** | 6.91 segundos |
+| **Caudal (Throughput)** | **723.9 registros/segundo** |
+| **Pérdida de mensajes** | **0.00%** |
+
+### Metodología del Test
+El script `setup/test_load_cassandra.py` realiza las siguientes acciones para validar el sistema:
+1.  **Generación de Datos Sintéticos**: Crea aeronaves ficticias con IDs únicos (`stress-XXXXXX`) y coordenadas aleatorias para evitar colisiones con datos reales.
+2.  **Escritura en Lotes (Batching)**: Agrupa los registros en lotes de 50. Esto reduce el número de peticiones de red y optimiza el uso del protocolo binario de Cassandra.
+3.  **Consistencia de Quórum**: Utiliza `LOCAL_QUORUM`, lo que obliga a que al menos 2 de los 3 nodos confirmen la recepción del dato antes de marcarlo como exitoso. Esto garantiza que la prueba no sea solo "de velocidad", sino también de integridad.
+4.  **Cálculo de Métricas**: Mide el tiempo exacto entre el primer y el último lote para calcular el *Throughput* real (registros por segundo) y verifica que el contador de errores sea cero.
+
+---

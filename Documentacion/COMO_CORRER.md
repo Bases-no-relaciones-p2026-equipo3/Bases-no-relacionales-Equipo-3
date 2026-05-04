@@ -237,3 +237,17 @@ El archivo `analisis/opensky_neo4j_queries.ipynb` permite ejecutar las consultas
 4.  Si cambias de host en el `.env`, solo necesitas reiniciar el kernel del notebook y volver a correr las celdas para conectar con el nuevo nodo.
 
 ---
+---
+
+## Paso 8 — Validación de Caudal (Stress Test)
+
+Para demostrar que la base de datos de ingesta soporta el volumen de entrada sin pérdida de mensajes:
+
+1.  Asegúrate de que tus contenedores de Cassandra estén corriendo.
+2.  Ejecuta el script de prueba:
+    ```powershell
+    & .venv/Scripts/python.exe setup/test_load_cassandra.py
+    ```
+3.  El script insertará 5,000 registros y mostrará un resumen de rendimiento (Throughput) y tasa de error.
+
+---

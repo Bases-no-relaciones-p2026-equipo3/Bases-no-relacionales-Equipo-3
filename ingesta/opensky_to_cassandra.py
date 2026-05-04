@@ -232,13 +232,14 @@ def prepare_insert(session):
     return stmt
 
 
-def insert_states(session, prepared_stmt, api_response: Dict[str, Any]) -> int:
+def insert_states(session, prepared_stmt, api_response: Dict[str, Any]) -> tuple:
     if not api_response or not api_response.get("states"):
-        return 0
+        return 0, 0.0
 
     snapshot_ts = datetime.fromtimestamp(api_response["time"], tz=timezone.utc)
     states      = api_response["states"]
     inserted    = 0
+    t_start     = time.time()
 
     for i in range(0, len(states), BATCH_SIZE):
         chunk = states[i : i + BATCH_SIZE]
@@ -255,7 +256,9 @@ def insert_states(session, prepared_stmt, api_response: Dict[str, Any]) -> int:
         session.execute(batch)
         inserted += len(chunk)
 
-    return inserted
+    t_end = time.time()
+    latency = t_end - t_start
+    return inserted, latency
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -291,14 +294,16 @@ def main():
                     raise ValueError("Respuesta vacía de OpenSky")
 
                 n_states           = len(response.get("states", []))
-                n_inserted         = insert_states(session, prepared_stmt, response)
+                n_inserted, db_time = insert_states(session, prepared_stmt, response)
                 total_inserted    += n_inserted
                 consecutive_errors = 0
 
                 elapsed = (datetime.now(tz=timezone.utc) - ts_start).total_seconds()
+                throughput = n_inserted / db_time if db_time > 0 else 0
                 logger.info(
                     f"Iter {iteration:>4} | aeronaves: {n_states:>5} | "
-                    f"insertadas: {n_inserted:>5} | total: {total_inserted:>8,} | {elapsed:.1f}s"
+                    f"insertadas: {n_inserted:>5} | total: {total_inserted:>8,} | "
+                    f"db_lat: {db_time:.2f}s | throughput: {throughput:.1f} rec/s | {elapsed:.1f}s total"
                 )
 
             except Exception as e:
