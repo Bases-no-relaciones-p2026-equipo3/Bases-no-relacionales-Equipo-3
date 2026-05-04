@@ -9,9 +9,6 @@ dependencies = [
     "cassandra-driver>=3.29.3",
     # Neo4j
     "neo4j>=5.24.0",
-    # Spark — IMPORTANTE: usar 3.5.1 (Scala 2.12). Spark 4.x usa Scala 2.13
-    # y es incompatible con los conectores de Cassandra y Neo4j del proyecto.
-    "pyspark==3.5.1",
     "venv-pack>=0.2.0",
     # API
     "fastapi>=0.115.0",
@@ -25,4 +22,5 @@ dependencies = [
     "ipykernel>=7.1.0",
     "ipywidgets>=8.1.8",
     "pyasyncore>=1.0.5",
+    "pyspark==3.5.1",
 ]

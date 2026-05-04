@@ -12,15 +12,7 @@ EXPOSE 8888
 
 # Install Python dependencies
 RUN apt-get update && apt-get install -y python3-venv
-RUN python3 -m pip install --no-cache-dir \
-    pyspark==3.5.7 \
-    jupyterlab \
-    pandas \
-    pyarrow \
-    # ── Cassandra ──────────────────────────────────────────────────────────
-    cassandra-driver \
-    # ── Neo4j ──────────────────────────────────────────────────────────────
-    neo4j
+RUN python3 -m pip install --no-cache-dir pyspark==3.5.7 delta-spark==3.2.0 jupyterlab pandas pyarrow
 
 # Set the default command to launch Jupyter Lab
 CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=$$JUPYTER_LAB_TOKEN"]

@@ -85,7 +85,34 @@ El archivo `.env` **nunca se sube al repositorio** (está en `.gitignore`). Cada
 
 ---
 
-## Paso 4 — Inicializar las bases de datos (solo la primera vez)
+## Paso 4 — Levantar la Infraestructura (Docker)
+
+En el modo distribuido, cada integrante levanta **solo** el componente que le corresponde. Desde la raíz del repositorio, ejecuta el comando según tu rol:
+
+### Si eres Andre (Cassandra):
+```bash
+docker-compose -f infra/cassandra/cassandra-cluster.docker-compose.yml up -d
+```
+
+### Si eres Víctor (Neo4j):
+```bash
+docker-compose -f infra/neo4j/neo4j.docker-compose.yml up -d
+```
+
+### Si eres Regina (Spark):
+```bash
+docker-compose -f infra/spark/spark-cluster.docker-compose.yml up -d
+```
+
+### Si eres Fernanda (API):
+No necesitas Docker local si vas a consumir los servicios de tus compañeros; solo asegúrate de que tu `.env` tenga las IPs de los demás.
+
+> [!TIP]
+> Puedes verificar que tu componente subió correctamente con `docker ps`. Si un contenedor se detiene, revisa los logs con `docker logs <nombre-contenedor>`.
+
+---
+
+## Paso 5 — Inicializar las bases de datos (solo la primera vez)
 
 > Solo es necesario correr este paso la primera vez, o después de un reset completo de datos.
 
@@ -198,3 +225,15 @@ Get-Content logs\spark.log        -Wait -Tail 50
 | API da `403 Forbidden` | Key incorrecta | Verificar `api/keys.json` |
 
 Para problemas de despliegue distribuido (WireGuard, IPs, roles), ver `INSTRUCTIVO_DESPLIEGUE.md`.
+---
+
+## Paso 7 — Análisis y Consultas (Notebook)
+
+El archivo `analisis/opensky_neo4j_queries.ipynb` permite ejecutar las consultas analíticas de forma interactiva.
+
+1.  Asegúrate de que tu `.env` tenga la IP correcta de la persona que levantó Neo4j (`NEO4J_HOST`).
+2.  Abre el notebook en VS Code o Jupyter Lab.
+3.  La primera celda de configuración está diseñada para leer automáticamente de `config.py`. 
+4.  Si cambias de host en el `.env`, solo necesitas reiniciar el kernel del notebook y volver a correr las celdas para conectar con el nuevo nodo.
+
+---

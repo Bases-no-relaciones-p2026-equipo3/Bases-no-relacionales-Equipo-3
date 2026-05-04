@@ -15,7 +15,7 @@ services:
         container_name: spark-master
         user: root
         command: bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.$$SPARK_MODE.$${SPARK_MODE^}
-            --host spark-master.rgorosti.vpn.itam.mx --port $$SPARK_MASTER_PORT --webui-port
+            --host 0.0.0.0 --port $$SPARK_MASTER_PORT --webui-port
             $$SPARK_MASTER_WEBUI_PORT"
         environment:
         - PYSPARK_PYTHON=python3
@@ -26,9 +26,9 @@ services:
         volumes:
         - .\mount\shared-workspace:/opt/spark/shared-workspace
         - .\mount\spark-master:/opt/spark/work-dir
-        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
-        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
-        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
+#        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
+#        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
+#        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
         - cassandra-net
@@ -50,7 +50,7 @@ services:
             - CMD
             - curl
             - -f
-            - http://spark-master.rgorosti.vpn.itam.mx:6080
+            - http://localhost:6080
             interval: 10s
             timeout: 10s
             retries: 10
@@ -72,9 +72,9 @@ services:
         - .\mount\shared-workspace:/opt/spark/shared-workspace
         - .\mount\spark-jupyter:/opt/spark/work-dir
         - .\vscode_server:/root/.vscode-server
-        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
-        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
-        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
+#        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
+#        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
+#        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
         - cassandra-net
@@ -114,13 +114,13 @@ services:
         - SPARK_DAEMON_MEMORY=512M
         - SPARK_WORKER_MEMORY=2048M
         - SPARK_WORKER_WEBUI_PORT=6081
-        - SPARK_MASTER_URL=spark://spark-master.rgorosti.vpn.itam.mx:6077
+        - SPARK_MASTER_URL=spark://spark-master:6077
         volumes:
         - .\mount\shared-workspace:/opt/spark/shared-workspace
         - .\mount\spark-worker-1:/opt/spark/work-dir
-        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
-        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
-        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
+#        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
+#        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
+#        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
         - cassandra-net
@@ -165,13 +165,13 @@ services:
         - SPARK_DAEMON_MEMORY=512M
         - SPARK_WORKER_MEMORY=2048M
         - SPARK_WORKER_WEBUI_PORT=6082
-        - SPARK_MASTER_URL=spark://spark-master.rgorosti.vpn.itam.mx:6077
+        - SPARK_MASTER_URL=spark://spark-master:6077
         volumes:
         - .\mount\shared-workspace:/opt/spark/shared-workspace
         - .\mount\spark-worker-2:/opt/spark/work-dir
-        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
-        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
-        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
+#        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
+#        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
+#        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
         - cassandra-net
@@ -218,13 +218,13 @@ services:
         - SPARK_DAEMON_MEMORY=512M
         - SPARK_WORKER_MEMORY=2048M
         - SPARK_WORKER_WEBUI_PORT=6083
-        - SPARK_MASTER_URL=spark://spark-master.rgorosti.vpn.itam.mx:6077
+        - SPARK_MASTER_URL=spark://spark-master:6077
         volumes:
         - .\mount\shared-workspace:/opt/spark/shared-workspace
         - .\mount\spark-worker-3:/opt/spark/work-dir
-        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
-        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
-        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
+#        - .\jars\delta-spark_2.12-3.2.0.jar:/opt/spark/jars/delta-spark_2.12-3.2.0.jar
+#        - .\jars\delta-storage-3.2.0.jar:/opt/spark/jars/delta-storage-3.2.0.jar
+#        - .\jars\iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar
         networks:
         - spark-cluster
         - cassandra-net

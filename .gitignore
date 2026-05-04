@@ -40,6 +40,20 @@ spark-warehouse/
 logs/
 tmp/
 temp/
+**/mount/data/
+**/mount/cassandra-node-*/
+**/mount/shared-workspace/
+**/mount/spark-*/
+**/vscode_server/
+*.db
+*.id
+*.names
+*.index
+*.db.id
+database_lock
+store_lock
+checkpoint.*
+neostore*
  
 # ── IDEs ──────────────────────────────────────────────────────────────────────
 .vscode/
