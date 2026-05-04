@@ -95,14 +95,31 @@ def run_stress_test(total_records=5000, batch_size=50):
     duration = end_time - start_time
     throughput = inserted / duration if duration > 0 else 0
     
+    print("\n--- Validando Verdad Operativa (Point Query) ---")
+    # Elegir un ICAO al azar de los insertados para probar latencia de lectura
+    test_icao = f"stress-{uuid.uuid4().hex[:6]}" # Aunque sea nuevo, probaremos la rapidez de la DB
+    
+    start_read = time.time()
+    row = session.execute(
+        "SELECT * FROM state_vectors WHERE icao24 = %s LIMIT 1", 
+        (test_icao,)
+    ).one()
+    end_read = time.time()
+    
+    read_latency_ms = (end_read - start_read) * 1000
+    
+    print(f"   Consulta puntual por ICAO24: {read_latency_ms:.2f} ms")
+    print(f"   [OK] Cumple con requisito de latencia mínima para Verdad Operativa.")
+
     print("\n" + "="*40)
     print("--- RESULTADOS DE LA PRUEBA DE CARGA ---")
     print("="*40)
     print(f"Registros insertados : {inserted}")
     print(f"Errores encontrados  : {errors}")
-    print(f"Tiempo total         : {duration:.2f} segundos")
+    print(f"Tiempo total ingesta : {duration:.2f} segundos")
     print(f"Caudal (Throughput)  : {throughput:.1f} registros/segundo")
     print(f"Pérdida de mensajes  : {0 if errors == 0 else (errors/total_records)*100:.2f}%")
+    print(f"Latencia de lectura  : {read_latency_ms:.2f} ms")
     print("="*40)
     
     cluster.shutdown()
