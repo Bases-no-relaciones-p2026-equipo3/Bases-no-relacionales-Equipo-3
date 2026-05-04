@@ -377,12 +377,15 @@ CREATE TABLE api_users (
 El sistema implementa tres niveles de acceso:
 
 - Admin
+
 Tiene acceso completo al sistema, puede consultar endpoints protegidos, y puede gestionar usuarios de la API.
 
 - Analyst
+
 Tiene acceso a endpoints de consulta y análisis, pero no puede realizar operaciones administrativas.
 
 - Viewer
+
 Tiene acceso limitado a endpoints básicos, es decir, solo lectura (sin acceso a funciones avanzadas).
 
 #### Mecanismo de Autenticación
