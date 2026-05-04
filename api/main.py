@@ -3,17 +3,23 @@ main.py
 ───────
 OpenSky Analytics API — FastAPI
 
-Arrancar (desarrollo):
-    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+Arrancar desde la carpeta api:
+    uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-Arrancar (producción):
-    uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+Documentación interactiva:
+    http://localhost:8000/docs
 
-Probar con curl (reemplaza <IP> con tu IP WireGuard):
-    curl -H "X-API-Key: sk-nombre-..." http://<IP>:8000/analytics/top-countries
+Probar con curl:
+    curl -H "X-API-Key: admin-key-123" http://localhost:8000/analytics/top-countries
 
 Documentación interactiva (Swagger):
-    http://<IP>:8000/docs
+    http://localhost:8000/docs
+
+Autenticación:
+    Usar header:
+        X-API-Key: admin-key-123
+        X-API-Key: analyst-key-123
+        X-API-Key: viewer-key-123
 """
 
 import logging
@@ -33,19 +39,35 @@ from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from auth import list_users, verify_key
+from auth import list_users, verify_key, require_roles
 import queries as q
 
-# ── Logging ───────────────────────────────────────────────────────────────────
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ROLES
+# ═════════════════════════════════════════════════════════════════════════════
+
+ADMIN_ONLY = ["admin"]
+ANALYTICS_ROLES = ["admin", "analyst"]
+VIEWER_ROLES = ["admin", "analyst", "viewer"]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# LOGGING
+# ═════════════════════════════════════════════════════════════════════════════
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
 )
+
 logger = logging.getLogger(__name__)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# LIFESPAN — init / teardown del driver Neo4j
+# ═════════════════════════════════════════════════════════════════════════════
 
-# ── Lifespan (init / teardown del driver Neo4j) ───────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Iniciando API — conectando a Neo4j...")
@@ -54,18 +76,24 @@ async def lifespan(app: FastAPI):
         logger.info("Neo4j OK.")
     except Exception as e:
         logger.error(f"No se pudo conectar a Neo4j al arrancar: {e}")
+
     yield
+
     logger.info("Cerrando API — liberando driver Neo4j...")
     q.close_driver()
 
 
-# ── App ───────────────────────────────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════
+# APP
+# ═════════════════════════════════════════════════════════════════════════════
+
 app = FastAPI(
     title="OpenSky Analytics API",
     description=(
-        "API REST sobre el grafo Neo4j del pipeline OpenSky → Cassandra → Spark → Neo4j.\n\n"
-        "**Autenticación:** header `X-API-Key` con tu key personal.\n\n"
-        "**Todos los endpoints requieren autenticación.**"
+        "API REST sobre el grafo Neo4j del pipeline "
+        "OpenSky → Cassandra → Spark → Neo4j.\n\n"
+        "**Autenticación:** header `X-API-Key` con una llave registrada en Cassandra.\n\n"
+        "**Roles:** `admin`, `analyst`, `viewer`."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -73,16 +101,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS — permite consumir la API desde navegador dentro del túnel WireGuard
+
+# CORS — permite consumir la API desde navegador
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # ajustar a IPs WireGuard si se quiere más restrictivo
+    allow_origins=["*"],
     allow_methods=["GET"],
     allow_headers=["X-API-Key"],
 )
 
 
-# ── Handler global de errores Neo4j ───────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════
+# HANDLER GLOBAL DE ERRORES
+# ═════════════════════════════════════════════════════════════════════════════
+
 @app.exception_handler(Exception)
 async def generic_handler(request, exc):
     logger.error(f"Error no manejado: {exc}")
@@ -93,13 +125,18 @@ async def generic_handler(request, exc):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# ENDPOINTS PÚBLICOS (sin auth)
+# ENDPOINTS PÚBLICOS
 # ═════════════════════════════════════════════════════════════════════════════
 
 @app.get("/", tags=["Sistema"], summary="Raíz")
 def root():
     """Verificación rápida de que la API está corriendo."""
-    return {"status": "ok", "api": "OpenSky Analytics", "version": "1.0.0"}
+    return {
+        "status": "ok",
+        "api": "OpenSky Analytics",
+        "version": "1.0.0",
+        "auth": "Use header X-API-Key for protected endpoints",
+    }
 
 
 @app.get("/health", tags=["Sistema"], summary="Estado del sistema")
@@ -110,19 +147,71 @@ def health():
     """
     try:
         stats = q.graph_stats()
-        return {"status": "ok", "neo4j": "connected", "graph": stats}
+        return {
+            "status": "ok",
+            "neo4j": "connected",
+            "graph": stats,
+        }
     except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "error", "neo4j": "unreachable", "detail": str(e)},
+            content={
+                "status": "error",
+                "neo4j": "unreachable",
+                "detail": str(e),
+            },
         )
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# ENDPOINTS ANALÍTICOS — requieren X-API-Key
+# ENDPOINTS DE AUTENTICACIÓN / PRUEBA DE ROLES
 # ═════════════════════════════════════════════════════════════════════════════
 
-# ── Q1 ────────────────────────────────────────────────────────────────────────
+@app.get(
+    "/health-secure",
+    tags=["Sistema"],
+    summary="Estado seguro — requiere API key válida",
+)
+def health_secure(user=Depends(verify_key)):
+    """
+    Endpoint de prueba para validar que la API key existe,
+    está activa y se puede consultar en Cassandra.
+    """
+    return {
+        "status": "ok",
+        "message": "API key válida",
+        "user": user,
+    }
+
+
+@app.get(
+    "/viewer/protected",
+    tags=["Acceso"],
+    summary="Endpoint protegido para viewer, analyst y admin",
+)
+def viewer_protected(user=Depends(require_roles(VIEWER_ROLES))):
+    return {
+        "message": "Acceso permitido a endpoint de lectura",
+        "user": user,
+    }
+
+
+@app.get(
+    "/analytics/protected",
+    tags=["Acceso"],
+    summary="Endpoint protegido para analyst y admin",
+)
+def analytics_protected(user=Depends(require_roles(ANALYTICS_ROLES))):
+    return {
+        "message": "Acceso permitido a análisis",
+        "user": user,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ENDPOINTS ANALÍTICOS — requieren rol admin o analyst
+# ═════════════════════════════════════════════════════════════════════════════
+
 @app.get(
     "/analytics/top-countries",
     tags=["Flota"],
@@ -130,12 +219,12 @@ def health():
 )
 def top_countries(
     limit: int = Query(10, ge=1, le=100, description="Número de resultados"),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
     Top N países ordenados por cantidad de aeronaves registradas.
 
-    Relación consultada: `(Country)-[:OPERATES]->(Aircraft)`
+    Relación consultada: `(Country)-[:OPERATES]->(Aircraft)`.
     """
     try:
         return q.q1_top_countries(limit=limit)
@@ -143,7 +232,6 @@ def top_countries(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q2 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/top-speed",
     tags=["Vuelo"],
@@ -152,12 +240,11 @@ def top_countries(
 def top_speed(
     limit: int = Query(10, ge=1, le=100),
     min_snapshots: int = Query(3, ge=1, description="Mínimo de snapshots para incluir"),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Top N aeronaves por velocidad promedio en vuelo (excluye on_ground).
-
-    Retorna velocidad en m/s y km/h.
+    Top N aeronaves por velocidad promedio en vuelo.
+    Excluye registros donde `on_ground = true`.
     """
     try:
         return q.q2_top_speed(limit=limit, min_snapshots=min_snapshots)
@@ -165,7 +252,6 @@ def top_speed(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q3 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/proximity-hubs",
     tags=["Proximidad"],
@@ -173,12 +259,10 @@ def top_speed(
 )
 def proximity_hubs(
     limit: int = Query(10, ge=1, le=100),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Aeronaves con más vecinas a ≤50 km en el mismo instante.
-
-    Alta densidad indica zonas de espera, aproximación o tráfico intenso.
+    Aeronaves con más vecinas cercanas en el mismo instante.
     """
     try:
         return q.q3_proximity_hub(limit=limit)
@@ -186,7 +270,6 @@ def proximity_hubs(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q4 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/trajectory/{icao24}",
     tags=["Vuelo"],
@@ -194,24 +277,24 @@ def proximity_hubs(
 )
 def aircraft_trajectory(
     icao24: str,
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
     Serie temporal de snapshots para el avión con código ICAO24 dado.
-
-    Incluye: altitud barométrica, velocidad, tasa vertical, posición GPS.
-
-    Si no conoces el icao24, usa primero `GET /analytics/most-tracked`.
     """
     icao24 = icao24.lower().strip()
+
     try:
         data = q.q4_aircraft_trajectory(icao24=icao24)
+
         if not data:
             raise HTTPException(
                 status_code=404,
                 detail=f"No se encontraron snapshots para icao24='{icao24}'.",
             )
+
         return data
+
     except HTTPException:
         raise
     except Exception as e:
@@ -223,20 +306,24 @@ def aircraft_trajectory(
     tags=["Vuelo"],
     summary="Q4-helper — Avión con más snapshots",
 )
-def most_tracked(user: str = Depends(verify_key)):
-    """Retorna el icao24 del avión con mayor cantidad de snapshots registrados."""
+def most_tracked(user=Depends(require_roles(ANALYTICS_ROLES))):
+    """
+    Retorna el ICAO24 del avión con mayor cantidad de snapshots registrados.
+    """
     try:
         result = q.q4_most_tracked_aircraft()
+
         if not result:
             raise HTTPException(404, detail="No hay snapshots en el grafo aún.")
+
         return result
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q5 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/country-interactions",
     tags=["Proximidad"],
@@ -244,12 +331,10 @@ def most_tracked(user: str = Depends(verify_key)):
 )
 def country_interactions(
     limit: int = Query(15, ge=1, le=100),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Pares de países cuyas aeronaves han volado a ≤50 km entre sí.
-
-    Útil para identificar zonas de tráfico internacional compartido.
+    Pares de países cuyas aeronaves han volado cerca entre sí.
     """
     try:
         return q.q5_country_interactions(limit=limit)
@@ -257,13 +342,12 @@ def country_interactions(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q6 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/position-sources",
     tags=["Flota"],
     summary="Q6 — Distribución por fuente de posición",
 )
-def position_sources(user: str = Depends(verify_key)):
+def position_sources(user=Depends(require_roles(ANALYTICS_ROLES))):
     """
     Distribución de aeronaves por tecnología de rastreo.
 
@@ -275,7 +359,6 @@ def position_sources(user: str = Depends(verify_key)):
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q7 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/departure-hotspots",
     tags=["Aeropuertos"],
@@ -283,12 +366,10 @@ def position_sources(user: str = Depends(verify_key)):
 )
 def departure_hotspots(
     limit: int = Query(20, ge=1, le=100),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Aeropuertos con más despegues detectados (confianza HIGH o MEDIUM).
-
-    Solo incluye eventos donde el avión estaba a ≤15 km del aeropuerto.
+    Aeropuertos con más despegues detectados.
     """
     try:
         return q.q7_departure_hotspots(limit=limit)
@@ -296,7 +377,6 @@ def departure_hotspots(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q8 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/arrival-hotspots",
     tags=["Aeropuertos"],
@@ -304,10 +384,10 @@ def departure_hotspots(
 )
 def arrival_hotspots(
     limit: int = Query(20, ge=1, le=100),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Aeropuertos con más aterrizajes detectados (confianza HIGH o MEDIUM).
+    Aeropuertos con más aterrizajes detectados.
     """
     try:
         return q.q8_arrival_hotspots(limit=limit)
@@ -315,7 +395,6 @@ def arrival_hotspots(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q9 ────────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/top-routes",
     tags=["Rutas"],
@@ -323,13 +402,10 @@ def arrival_hotspots(
 )
 def top_routes(
     limit: int = Query(25, ge=1, le=100),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
     Pares origen → destino más frecuentes.
-
-    Solo cuenta vuelos donde el despegue ocurrió antes del aterrizaje
-    y ambos eventos tienen confianza HIGH o MEDIUM.
     """
     try:
         return q.q9_top_routes(limit=limit)
@@ -337,7 +413,6 @@ def top_routes(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q10 ───────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/net-traffic",
     tags=["Aeropuertos"],
@@ -345,13 +420,10 @@ def top_routes(
 )
 def net_traffic(
     limit: int = Query(30, ge=1, le=100),
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Salidas − llegadas por aeropuerto.
-
-    - **Positivo** → más salidas que llegadas (aeropuerto emisor / origen)
-    - **Negativo** → más llegadas que salidas (hub receptor / destino)
+    Salidas menos llegadas por aeropuerto.
     """
     try:
         return q.q10_net_traffic(limit=limit)
@@ -359,7 +431,6 @@ def net_traffic(
         raise HTTPException(500, detail=str(e))
 
 
-# ── Q11 ───────────────────────────────────────────────────────────────────────
 @app.get(
     "/analytics/aircraft-history/{icao24}",
     tags=["Rutas"],
@@ -367,38 +438,46 @@ def net_traffic(
 )
 def aircraft_history(
     icao24: str,
-    user: str = Depends(verify_key),
+    user=Depends(require_roles(ANALYTICS_ROLES)),
 ):
     """
-    Secuencia cronológica de aeropuertos visitados por el avión dado.
-
-    Incluye tipo de evento (DEPARTED_FROM / ARRIVED_AT), confianza y
-    distancia al aeropuerto en el momento del evento.
+    Secuencia cronológica de aeropuertos visitados por una aeronave.
     """
     icao24 = icao24.lower().strip()
+
     try:
         data = q.q11_aircraft_history(icao24=icao24)
+
         if not data:
             raise HTTPException(
                 status_code=404,
                 detail=f"No hay historial de aeropuertos para icao24='{icao24}'.",
             )
+
         return data
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
 
-# ── Admin (solo info, sin mutaciones) ─────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════
+# ADMIN — requiere rol admin
+# ═════════════════════════════════════════════════════════════════════════════
+
 @app.get(
     "/admin/users",
     tags=["Admin"],
     summary="Lista de usuarios registrados",
 )
-def list_registered_users(user: str = Depends(verify_key)):
+def list_registered_users(user=Depends(require_roles(ADMIN_ONLY))):
     """
-    Retorna los nombres de usuarios con API key activa.
-    No expone las keys.
+    Retorna usuarios registrados en Cassandra.
+    No expone las API keys.
+    Solo puede consultarlo un usuario con rol admin.
     """
-    return {"users": list_users(), "requested_by": user}
+    return {
+        "users": list_users(),
+        "requested_by": user,
+    }
