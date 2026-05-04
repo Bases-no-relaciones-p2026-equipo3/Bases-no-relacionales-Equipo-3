@@ -251,3 +251,25 @@ Para demostrar que la base de datos de ingesta soporta el volumen de entrada sin
 3.  El script insertará 5,000 registros y mostrará un resumen de rendimiento (Throughput) y tasa de error.
 
 ---
+---
+
+## Paso 9 — Ejecución de Consultas de Análisis
+
+El sistema ofrece dos formas de consultar los hallazgos analíticos:
+
+### A. Vía Jupyter Notebook (Exploración)
+1.  Abre `analisis/opensky_neo4j_queries.ipynb`.
+2.  Asegúrate de que el kernel de Python sea el de tu `.venv`.
+3.  Ejecuta las celdas para ver visualizaciones de:
+    - **Proximidad**: Aeronaves que estuvieron cerca en el aire.
+    - **Rutas**: Aeropuertos de origen y destino detectados.
+    - **Estadísticas**: Países con mayor tráfico en tiempo real.
+
+### B. Vía API REST (Producción)
+1.  Inicia la API: `uv run uvicorn api.main:app --host 0.0.0.0 --port 8000`.
+2.  Usa un cliente como Postman o `curl`.
+3.  **Importante**: Debes incluir una API Key válida de Cassandra en el header.
+    - Ejemplo: `GET http://localhost:8000/analytics/top-countries`
+    - Header: `X-API-Key: admin-key-2026`
+
+---

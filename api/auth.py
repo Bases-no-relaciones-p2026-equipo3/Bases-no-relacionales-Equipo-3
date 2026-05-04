@@ -3,11 +3,10 @@ from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 import os
 
-CASSANDRA_HOST = os.getenv("CASSANDRA_HOST", "localhost")
-CASSANDRA_PORT = int(os.getenv("CASSANDRA_PORT", "9041"))
-CASSANDRA_USER = os.getenv("CASSANDRA_USER", "cassandra")
-CASSANDRA_PASSWORD = os.getenv("CASSANDRA_PASSWORD", "cassandra")
-CASSANDRA_KEYSPACE = os.getenv("CASSANDRA_KEYSPACE", "opensky")
+from config import (
+    CASSANDRA_NODE_IPS, CASSANDRA_PORT,
+    CASSANDRA_USER, CASSANDRA_PASSWORD, CASSANDRA_KEYSPACE
+)
 
 
 def get_session():
@@ -15,13 +14,11 @@ def get_session():
         username=CASSANDRA_USER,
         password=CASSANDRA_PASSWORD
     )
-
     cluster = Cluster(
-        contact_points=[CASSANDRA_HOST],
+        contact_points=CASSANDRA_NODE_IPS,
         port=CASSANDRA_PORT,
         auth_provider=auth_provider
     )
-
     return cluster.connect(CASSANDRA_KEYSPACE)
 
 
