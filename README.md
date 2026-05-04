@@ -360,15 +360,16 @@ Toda la configuración de Spark (memoria, master, packages) está en `config.py`
 
 ### Implementación de Control de Accesos
 
-El sistema implementa un modelo de control de accesos basado en API Keys y roles (RBAC), almacenados en Apache Cassandra. Cada solicitud a la API debe incluir un encabezado X-API-Key, el cual es validado contra la tabla api_users. A partir de esta validación, se determina el rol del usuario y se autorizan o restringen las operaciones disponibles.
+La seguridad del sistema está centralizada en **Apache Cassandra**, eliminando el uso de archivos estáticos (JSON) para cumplir plenamente con los principios de una arquitectura NoSQL distribuida. El sistema implementa un modelo de roles (RBAC) donde cada solicitud a la API debe incluir un encabezado `X-API-Key`, el cual es validado contra la tabla `api_users`.
 
-Se definió una tabla en Cassandra para gestionar usuarios de la API:
+Esquema de gestión de usuarios en Cassandra:
 
 ```cql
 CREATE TABLE api_users ( 
-  api_key TEXT PRIMARY KEY, 
-  role TEXT, 
-  description TEXT 
+  api_key  TEXT PRIMARY KEY, 
+  username TEXT,
+  role     TEXT, 
+  active   BOOLEAN 
 );
 ```
 
@@ -444,15 +445,16 @@ La prueba consistió en la inserción de **5,000 registros** ficticios en batche
 |---|---|
 | **Registros procesados** | 5,000 |
 | **Errores encontrados** | 0 |
-| **Tiempo total** | 6.91 segundos |
-| **Caudal (Throughput)** | **723.9 registros/segundo** |
+| **Tiempo total ingesta** | 6.06 segundos |
+| **Caudal (Throughput)** | **824.7 registros/segundo** |
 | **Pérdida de mensajes** | **0.00%** |
+| **Latencia Verdad Operativa** | **21.02 ms** |
 
 ### Metodología del Test
 El script `setup/test_load_cassandra.py` realiza las siguientes acciones para validar el sistema:
 1.  **Generación de Datos Sintéticos**: Crea aeronaves ficticias con IDs únicos (`stress-XXXXXX`) y coordenadas aleatorias para evitar colisiones con datos reales.
 2.  **Escritura en Lotes (Batching)**: Agrupa los registros en lotes de 50. Esto reduce el número de peticiones de red y optimiza el uso del protocolo binario de Cassandra.
 3.  **Consistencia de Quórum**: Utiliza `LOCAL_QUORUM`, lo que obliga a que al menos 2 de los 3 nodos confirmen la recepción del dato antes de marcarlo como exitoso. Esto garantiza que la prueba no sea solo "de velocidad", sino también de integridad.
-4.  **Cálculo de Métricas**: Mide el tiempo exacto entre el primer y el último lote para calcular el *Throughput* real (registros por segundo) y verifica que el contador de errores sea cero.
+4.  **Cálculo de Métricas y Verdad Operativa**: Mide el tiempo entre lotes para el throughput y realiza una **Consulta de Punto (Point Query)** al finalizar para validar que la latencia de recuperación de un evento actual es mínima (<30ms).
 
 ---
