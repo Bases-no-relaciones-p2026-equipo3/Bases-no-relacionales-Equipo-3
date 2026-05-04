@@ -9,6 +9,7 @@ dependencies = [
     "cassandra-driver>=3.29.3",
     # Neo4j
     "neo4j>=5.24.0",
+    # Spark
     "venv-pack>=0.2.0",
     # API
     "fastapi>=0.115.0",

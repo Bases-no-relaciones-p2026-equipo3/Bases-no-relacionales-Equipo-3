@@ -360,7 +360,46 @@ Toda la configuración de Spark (memoria, master, packages) está en `config.py`
 
 ### Implementación de Control de Accesos
 
-*
+El sistema implementa un modelo de control de accesos basado en API Keys y roles (RBAC), almacenados en Apache Cassandra. Cada solicitud a la API debe incluir un encabezado X-API-Key, el cual es validado contra la tabla api_users. A partir de esta validación, se determina el rol del usuario y se autorizan o restringen las operaciones disponibles.
+
+Se definió una tabla en Cassandra para gestionar usuarios de la API:
+
+```cql
+CREATE TABLE api_users ( 
+  api_key TEXT PRIMARY KEY, 
+  role TEXT, 
+  description TEXT 
+);
+```
+
+#### Definición de roles 
+
+El sistema implementa tres niveles de acceso:
+
+- Admin
+
+Tiene acceso completo al sistema, puede consultar endpoints protegidos, y puede gestionar usuarios de la API.
+
+- Analyst
+
+Tiene acceso a endpoints de consulta y análisis, pero no puede realizar operaciones administrativas.
+
+- Viewer
+
+Tiene acceso limitado a endpoints básicos, es decir, solo lectura (sin acceso a funciones avanzadas).
+
+#### Mecanismo de Autenticación
+
+Cada request HTTP debe incluir el header:
+ 
+X-API-Key: <api_key>
+
+El sistema realiza:
+
+- Validación de existencia de la API Key en Cassandra
+- Obtención del rol asociado
+- Evaluación de permisos según el endpoint solicitado
+  
 
 ### Justificación de Arquitectura: Teorema CAP
 
