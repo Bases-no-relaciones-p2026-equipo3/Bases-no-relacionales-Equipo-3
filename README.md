@@ -130,3 +130,256 @@ El procesamiento de datos de vigilancia aérea, aunque se basa en señales públ
 - La red OpenSky depende de receptores voluntarios (crowdsourcing). Esto genera un sesgo de disponibilidad: las regiones con mayor infraestructura tecnológica (Europa y Norteamérica) presentan una densidad de datos artificialmente superior a la de regiones en desarrollo. Es éticamente necesario aclarar que la ausencia de datos en ciertas zonas no implica falta de tráfico, sino falta de sensores.
 
 - Al ser una organización sin fines de lucro enfocada en la investigación, el uso ético de estos datos implica respetar los términos de servicio para fines académicos. Existe el riesgo de que análisis erróneos o interpretaciones simplistas de anomalías en el stream generen alarmas innecesarias sobre la seguridad aérea.
+
+---
+
+## 2. Infraestructura y Configuración
+
+Para este proyecto desplegamos una arquitectura distribuida en cuatro máquinas conectadas mediante una red privada WireGuard. La idea general es separar la captura de datos en tiempo real del análisis posterior, usando una tecnología distinta para cada tarea según las necesidades del proyecto en cada momento.
+
+El flujo del dato es el siguiente:
+
+```
+OpenSky API  →  Cassandra  →  Spark  →  Neo4j  →  FastAPI
+```
+
+OpenSky es la fuente externa que nos entrega los state vectors de las aeronaves. Un programa de Python en la máquina de ingesta se conecta cada 20 segundos y guarda lo recibido en Cassandra. Cada 5 minutos un job de Spark lee lo acumulado en Cassandra, lo limpia, detecta despegues y aterrizajes, y construye un grafo en Neo4j. Finalmente una API en FastAPI expone consultas analíticas a partir del grafo.
+
+### Estructura del proyecto
+
+El repositorio está organizado por capas del pipeline. Cada carpeta corresponde a una etapa del flujo de datos o a un componente del sistema.
+
+```
+BASES-NO-RELACIONALES-EQUIPO-3/
+│
+├── README.md                       ← Documentación principal del proyecto
+├── config.py                       ← Configuración centralizada (lee del .env)
+├── env.example                     ← Plantilla del archivo .env
+├── pipeline_orchestrator.py        ← Punto de entrada: arranca ingesta + Spark
+├── pyproject.toml                  ← Dependencias del proyecto
+├── uv.lock                         ← Versiones exactas de las dependencias
+├── .gitignore                      ← Archivos que no se suben al repo
+│
+├── Documentacion/                  ← Documentación operativa interna del equipo
+│   ├── README.md
+│   ├── INSTRUCTIVO_DESPLIEGUE.md
+│   └── INSTRUCTIVO_ROLES_INTERCAMBIABLES.md
+│
+├── infra/                          ← Configuración de infraestructura
+│   ├── cassandra/
+│   │   ├── cassandra.yaml
+│   │   └── cassandra-rackdc.properties
+│   └── docker/
+│       ├── dockerfile.spark-jupyter
+│       └── dockerfile.spark-job-venv
+│
+├── setup/                          ← Scripts que se corren una sola vez al inicio
+│   ├── cassandra_schema_migration.py
+│   ├── load_airports.py
+│   └── neo4j_setup_indexes.py
+│
+├── ingesta/                        ← Capa de ingesta (OpenSky → Cassandra)
+│   └── opensky_to_cassandra.py
+│
+├── procesamiento/                  ← Capa OLAP (Cassandra → Neo4j vía Spark)
+│   └── cassandra_to_neo4j_spark.py
+│
+├── analisis/                       ← Consultas analíticas sobre el grafo
+│   └── opensky_neo4j_queries.ipynb
+│
+├── api/                            ← API REST que expone el grafo
+│   ├── main.py
+│   ├── auth.py
+│   ├── queries.py
+│   ├── keys.json
+│   └── requirements.txt
+│
+├── logs/                           ← Logs de ejecución generados en runtime
+│   ├── ingesta.log
+│   ├── spark.log
+│   └── orchestrator.log
+│
+└── images/                         ← Imágenes utilizadas en el README
+```
+
+#### Descripción de cada carpeta
+
+| Carpeta | Función |
+|---|---|
+| **(raíz)** | Contiene el README principal, la configuración centralizada (`config.py`), la plantilla del entorno (`env.example`), el orquestador del pipeline (`pipeline_orchestrator.py`) y los archivos de gestión de dependencias. |
+| **`Documentacion/`** | Documentación operativa interna del equipo. Incluye los instructivos de despliegue paso a paso usados durante las sesiones de trabajo. No forma parte de la entrega evaluable, sirve como guía de operación. |
+| **`infra/`** | Configuración de infraestructura. La subcarpeta `cassandra/` contiene los archivos `cassandra.yaml` y `cassandra-rackdc.properties` que definen los parámetros del nodo Cassandra. La subcarpeta `docker/` contiene los Dockerfiles que construyen las imágenes de Spark utilizadas para procesamiento. |
+| **`setup/`** | Scripts de inicialización que se ejecutan una sola vez al desplegar el proyecto. Crean el keyspace y las tablas en Cassandra, cargan el catálogo de aeropuertos y crean los constraints e índices en Neo4j. |
+| **`ingesta/`** | Capa de ingesta. Contiene el script que se conecta a la API de OpenSky cada 20 segundos y guarda los state vectors en la tabla `state_vectors` de Cassandra. |
+| **`procesamiento/`** | Capa OLAP. Contiene el job de Spark que lee los datos crudos de Cassandra, los limpia, detecta despegues y aterrizajes, y construye el grafo en Neo4j. Lo lanza el orquestador cada 5 minutos. |
+| **`analisis/`** | Notebook de Jupyter con las consultas analíticas (Cypher) que se ejecutan sobre el grafo de Neo4j. |
+| **`api/`** | API REST construida con FastAPI. Expone los resultados del análisis vía endpoints HTTP, con autenticación por API key (header `X-API-Key`). |
+| **`logs/`** | Archivos de log generados en tiempo de ejecución por la ingesta, el job de Spark y el orquestador. Sirven como evidencia de operación y para diagnóstico. |
+| **`images/`** | Imágenes utilizadas en el README (mapas, capturas, diagramas). |
+
+#### Archivos clave en la raíz
+
+| Archivo | Función |
+|---|---|
+| `README.md` | Documentación principal del proyecto. Contiene la descripción del stream, la documentación de la infraestructura, las decisiones de arquitectura y los hallazgos del análisis. |
+| `config.py` | Carga centralizada de configuración. Todos los scripts importan de aquí los hosts, puertos y credenciales de Cassandra, Neo4j y Spark. La configuración se toma del archivo `.env` o de variables de entorno del sistema. |
+| `env.example` | Plantilla del archivo `.env`. Cada miembro del equipo la copia a `.env` (excluido del repo) y la rellena con los valores correspondientes a su rol. |
+| `pipeline_orchestrator.py` | Punto de entrada del sistema. Limpia las bases de datos al iniciar, arranca la ingesta como proceso continuo y lanza el job de Spark cada 5 minutos en paralelo. |
+| `pyproject.toml` y `uv.lock` | Definición y bloqueo de dependencias del proyecto, gestionadas con `uv`. |
+| `.gitignore` | Lista de archivos y carpetas que no se versionan (incluye `.env`, `keys.json` y los logs). |
+
+### Capa de ingesta (operativa): Apache Cassandra
+
+Para la capa de ingesta elegimos **Apache Cassandra**, una base de datos NoSQL de tipo columnar pensada para escritura intensiva en clusters distribuidos. La razón principal es que el stream de OpenSky genera ráfagas constantes de eventos y no podemos pedirle a la fuente que reenvíe lo que se pierda, así que el sistema tiene que aceptar escrituras siempre y de forma rápida. Cassandra está diseñada exactamente para eso: cada escritura se acepta primero en memoria y se escribe a disco después de manera asíncrona.
+
+Cassandra también ofrece de manera nativa los dos requisitos del rubro:
+
+- **Replicación** mediante el `replication_factor` del keyspace. Cada partición de datos se copia en varios nodos a la vez, así que si un nodo se cae el cluster sigue operando con los demás.
+- **Sharding** automático mediante el particionador `Murmur3Partitioner` y *vnodes*. Los datos se reparten por hash entre los nodos sin que tengamos que hacer nada manual: Cassandra reasigna rangos cuando se agrega o quita un nodo.
+
+#### Topología del cluster
+
+Levantamos **tres nodos de Cassandra** (`cassandra-node-1`, `cassandra-node-2`, `cassandra-node-3`) en contenedores Docker, todos en el mismo datacenter lógico (`dc=dc1`, `rack=rack1`). El archivo `infra/cassandra/cassandra-rackdc.properties` define esa topología, y `infra/cassandra/cassandra.yaml` contiene los parámetros principales del nodo.
+
+Los parámetros más relevantes son:
+
+| Parámetro | Valor | Para qué sirve |
+|---|---|---|
+| `partitioner` | `Murmur3Partitioner` | Aplica un hash a la *partition key* para repartir los datos uniformemente entre nodos. |
+| `num_tokens` | `16` | Cada nodo maneja 16 vnodes; permite un sharding fino y rebalanceo automático. |
+| `endpoint_snitch` | `GossipingPropertyFileSnitch` | Permite definir datacenter y rack manualmente, requisito para usar `NetworkTopologyStrategy`. |
+| `native_transport_port` | `9042` (mapeado a `9041` en el host) | Puerto CQL para conectarse desde el driver de Python. |
+| `rpc_address` | `0.0.0.0` | Cassandra escucha en todas las interfaces, necesario para aceptar conexiones desde la red WireGuard. |
+
+#### Replicación
+
+El keyspace `opensky` se crea con `NetworkTopologyStrategy` y replication factor de 3, lo que significa que cada partición vive en los tres nodos. Esto permite tolerar la caída de un nodo sin pérdida de datos ni interrupción del servicio.
+
+```cql
+CREATE KEYSPACE IF NOT EXISTS opensky
+WITH replication = {
+    'class': 'NetworkTopologyStrategy',
+    'dc1': 3
+};
+```
+
+#### Tablas principales
+
+**`state_vectors`** — almacena el estado más reciente de cada aeronave en cada captura. Es la tabla que recibe la ingesta directa desde OpenSky.
+
+```cql
+CREATE TABLE state_vectors (
+    icao24          text,
+    snapshot_time   timestamp,
+    callsign        text,
+    origin_country  text,
+    longitude       double,
+    latitude        double,
+    baro_altitude   double,
+    geo_altitude    double,
+    velocity        double,
+    true_track      double,
+    vertical_rate   double,
+    on_ground       boolean,
+    squawk          text,
+    spi             boolean,
+    position_source int,
+    category        int,
+    time_position   bigint,
+    last_contact    bigint,
+    PRIMARY KEY (icao24, snapshot_time)
+) WITH CLUSTERING ORDER BY (snapshot_time DESC)
+  AND default_time_to_live = 604800;
+```
+
+La *partition key* es `icao24` (el código único del avión), lo que hace que todas las observaciones de la misma aeronave caigan en el mismo nodo y que la consulta "trayectoria del avión X" sea muy rápida. La *clustering column* `snapshot_time DESC` ordena las filas físicamente por tiempo descendente, así que la lectura "último estado conocido" es prácticamente instantánea. El TTL de 604 800 segundos (7 días) hace que los datos viejos se borren automáticamente.
+
+**`flight_events`** — guarda los eventos TAKEOFF y LANDING que detecta el job de Spark.
+
+```cql
+CREATE TABLE flight_events (
+    icao24       text,
+    event_time   timestamp,
+    event_type   text,
+    latitude     double,
+    longitude    double,
+    airport_icao text,
+    airport_name text,
+    confidence   text,
+    gap_seconds  int,
+    batch_id     text,
+    PRIMARY KEY (icao24, event_time, event_type)
+) WITH CLUSTERING ORDER BY (event_time DESC, event_type ASC)
+  AND default_time_to_live = 2592000;
+```
+
+**`airports`** — catálogo estático con los aeropuertos grandes y medianos del mundo (descargado de OurAirports.com). Sirve para enriquecer los eventos: cuando Spark detecta un despegue, busca el aeropuerto más cercano dentro de 15 km y lo asocia al evento.
+
+#### Driver y consistencia
+
+La ingesta usa el driver oficial `cassandra-driver` para Python, con `RoundRobinPolicy` como balanceador (reparte las inserciones entre los tres nodos) y un `RetryPolicy` por defecto. Las inserciones se hacen en `BatchStatement` con `BATCH_SIZE = 10` para no rebasar el límite de 5 KB por batch que tiene Cassandra.
+
+El nivel de consistencia por defecto es `LOCAL_ONE` para escrituras (basta con que un nodo confirme, máximo throughput) y `LOCAL_QUORUM` para consultas que necesiten leer datos consistentes (dos de tres nodos deben coincidir).
+
+### Capa de procesamiento analítico (OLAP): Neo4j + Apache Spark
+
+Para la capa OLAP usamos **Neo4j** como base de datos analítica y **Apache Spark** como motor de transformación que mueve datos de Cassandra a Neo4j.
+
+#### Por qué Neo4j
+
+Las preguntas analíticas que queremos responder son inherentemente relacionales: rutas más frecuentes entre aeropuertos, países que comparten más tráfico aéreo, hubs de proximidad entre aeronaves, etc. Resolver estas preguntas en Cassandra requeriría cruces costosos entre tablas porque Cassandra no maneja joins. Neo4j sí: es una base de datos de grafos donde los nodos representan entidades (aviones, países, aeropuertos) y las aristas representan relaciones, y las consultas se expresan como travesías sobre ese grafo, lo cual es muy rápido.
+
+#### Modelo del grafo
+
+El grafo construido por Spark tiene cuatro tipos de nodos y cinco tipos de relaciones:
+
+- Nodos: `Aircraft`, `Country`, `Airport`, `Snapshot`.
+- Relaciones: `OPERATES` (un país opera un avión), `SNAPSHOT` (un avión tiene un snapshot), `NEAR` (dos aviones a 50 km o menos en el mismo instante), `DEPARTED_FROM` (un avión despegó de un aeropuerto), `ARRIVED_AT` (un avión aterrizó en un aeropuerto).
+
+Para que las consultas sean rápidas, el script `setup/neo4j_setup_indexes.py` crea constraints de unicidad sobre `Aircraft.icao24`, `Country.name` y `Airport.icao`, además de índices secundarios sobre `Aircraft.callsign`, `Snapshot.snapshot_time`, `Airport.iata` y `Airport.country`.
+
+#### Por qué Spark
+
+Spark es un motor de procesamiento distribuido sin estado que puede leer de Cassandra y escribir en Neo4j gracias a dos conectores:
+
+- `spark-cassandra-connector_2.12:3.5.1`
+- `neo4j-connector-apache-spark_2.12:5.3.2_for_spark_3`
+
+El job `procesamiento/cassandra_to_neo4j_spark.py` hace tres cosas: limpieza (filtra nulos, deduplica por `(icao24, snapshot_time)`, normaliza tipos numéricos), enriquecimiento (cruza posiciones con el catálogo de aeropuertos usando la fórmula de Haversine para distancia geográfica, y agrega columnas derivadas como `velocity_kmh`), y detección de eventos (usa una ventana ordenada por tiempo con la función `lag()` para identificar transiciones de `on_ground=true` a `on_ground=false`, que son despegues, y el caso contrario, que son aterrizajes; le asigna a cada evento un nivel de confianza HIGH/MEDIUM/LOW según qué tan cerca estaba del aeropuerto).
+
+Toda la configuración de Spark (memoria, master, packages) está en `config.py`. Se corre en modo `local[*]` aprovechando todos los cores disponibles en la máquina de procesamiento.
+
+### Implementación de Control de Accesos
+
+*
+
+### Justificación de Arquitectura: Teorema CAP
+
+El teorema CAP dice que un sistema distribuido sólo puede garantizar al mismo tiempo dos de las tres propiedades: Consistencia, Disponibilidad y Tolerancia a Particiones. En cualquier despliegue real sobre red la tolerancia a particiones (P) es obligatoria porque las particiones de red ocurren tarde o temprano. La elección real entonces es entre C y A.
+
+En este proyecto cada capa toma una decisión distinta porque los requisitos son distintos.
+
+**Capa de ingesta (Cassandra): priorizamos AP.**
+
+Lo más importante en la capa operativa es no perder eventos. OpenSky no nos puede repetir un mensaje que llegó hace cinco minutos, así que si un nodo se cae el sistema tiene que poder seguir aceptando escrituras en los demás nodos. Cassandra está diseñada exactamente con esa filosofía: es una base de datos masterless (todos los nodos son iguales y pueden aceptar lecturas y escrituras), y con replicación eventualmente consistente. El precio que se paga es que justo después de escribir, una lectura podría no ver el dato si toca un nodo donde la replicación todavía no llegó. Para nuestro caso eso es aceptable porque las consultas operativas toleran segundos de retraso, y la transformación analítica corre con minutos de retraso natural.
+
+**Capa analítica (Neo4j): priorizamos CP.**
+
+En la capa analítica preferimos consistencia sobre disponibilidad. Las respuestas de la API tienen que ser internamente coherentes; sería un error que el conteo de aviones de un país difiriera del listado real de aviones devuelto por otra consulta. Neo4j (en su versión Community como instancia única, o en Enterprise con Causal Cluster usando el protocolo Raft) garantiza consistencia ACID estricta. Si hay una partición de red, el sistema prefiere rechazar escrituras antes que aceptar valores divergentes. El costo es que durante una partición la capa analítica puede quedar temporalmente no escribible, pero eso no afecta la operación del sistema en general porque la captura sigue funcionando en Cassandra y Spark reconstruye el grafo cuando la conectividad regresa.
+
+**Capa de procesamiento (Spark): no participa del eje CAP.**
+
+Spark es un motor de cómputo sin estado persistente, así que no tiene que tomar partido. Lee de Cassandra y escribe a Neo4j. La idempotencia del job (el uso de MERGE en Cypher y de claves primarias en Cassandra) hace que se pueda reprocesar una ventana de tiempo sin problema, lo que convierte una falla del job en un retraso, no en una pérdida de datos.
+
+**Resumen.**
+
+| Capa | Tecnología | Prioridad CAP | Razón |
+|---|---|---|---|
+| Ingesta | Cassandra | AP | El stream no se puede repetir; la prioridad es no perder eventos. |
+| Analítica | Neo4j | CP | Las consultas deben ser internamente consistentes. |
+| Procesamiento | Spark | sin estado | Cómputo idempotente, no almacena nada. |
+
+
+
+
+
