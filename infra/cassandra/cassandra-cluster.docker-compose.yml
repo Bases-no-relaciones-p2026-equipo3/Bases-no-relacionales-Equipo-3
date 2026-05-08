@@ -7,8 +7,8 @@ services:
         - CASSANDRA_USER=cassandra
         - MAX_HEAP_SIZE=768M
         - HEAP_NEWSIZE=256M
-        - CASSANDRA_CLUSTER_NAME=cassandra-cluster.rgorosti.vpn.itam.mx
-        - CASSANDRA_SEEDS=10.15.20.18:7001,10.15.20.18:7002,10.15.20.18:7003
+        - CASSANDRA_CLUSTER_NAME=cassandra-cluster.rgorosti.local
+        - CASSANDRA_SEEDS=CompuAndre.local:7001,CompuAndre.local:7002,CompuAndre.local:7003
         - CASSANDRA_LISTEN_ADDRESS=auto
         - CASSANDRA_RPC_ADDRESS=0.0.0.0
         - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
@@ -16,18 +16,18 @@ services:
         - CASSANDRA_STORAGE_PORT=7001
         - CASSANDRA_SSL_STORAGE_PORT=7501
         - JVM_OPTS=-Xms256M -Xmx768M -Dcassandra.native_transport_port=9041 -Dcassandra.storage_port=7001
-            -Dcassandra.ssl_storage_port=7501 -Dcassandra.broadcast_rpc_address=cassandra-node-1.rgorosti.vpn.itam.mx
-            -Dcassandra.broadcast_address=cassandra-node-1.rgorosti.vpn.itam.mx -Dcom.sun.management.jmxremote.authenticate=false
+            -Dcassandra.ssl_storage_port=7501 -Dcassandra.broadcast_rpc_address=CompuAndre.local
+            -Dcassandra.broadcast_address=CompuAndre.local -Dcom.sun.management.jmxremote.authenticate=false
             -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.jmx.remote.port=7201
-        - CASSANDRA_BROADCAST_RPC_ADDRESS=10.15.20.18
-        - CASSANDRA_BROADCAST_ADDRESS=10.15.20.18
+        - CASSANDRA_BROADCAST_RPC_ADDRESS=CompuAndre.local
+        - CASSANDRA_BROADCAST_ADDRESS=CompuAndre.local
         - LOCAL_JMX=no
         volumes:
-        - .\mount\cassandra-node-1:/var/lib/cassandra
-        - .\mount\cassandra-node-1\certs:/etc/cassandra/certs
-        - .\mount\cassandra-node-1\cassandra.yaml:/etc/cassandra/cassandra.yaml
-        - .\mount\cassandra-node-1\cassandra-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties
-        - .\mount\jmxremote.password:/etc/cassandra/jmxremote.password
+        - ./mount/cassandra-node-1:/var/lib/cassandra
+        - ./mount/cassandra-node-1/certs:/etc/cassandra/certs
+        - ./mount/cassandra-node-1/cassandra.yaml:/etc/cassandra/cassandra.yaml
+        - ./mount/cassandra-node-1/cassandra-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties
+        - ./mount/jmxremote.password:/etc/cassandra/jmxremote.password
         networks:
         - cassandra-cluster
         ports:
@@ -37,8 +37,8 @@ services:
         - 7201:7201
         extra_hosts:
         - host.docker.internal:host-gateway
-        dns: &id001
-        - 10.15.20.1
+#        dns: &id001
+#        - 10.15.30.1
         deploy:
             resources:
                 limits:
@@ -61,8 +61,8 @@ services:
         - CASSANDRA_USER=cassandra
         - MAX_HEAP_SIZE=768M
         - HEAP_NEWSIZE=256M
-        - CASSANDRA_CLUSTER_NAME=cassandra-cluster.rgorosti.vpn.itam.mx
-        - CASSANDRA_SEEDS=10.15.20.18:7001,10.15.20.18:7002,10.15.20.18:7003
+        - CASSANDRA_CLUSTER_NAME=cassandra-cluster.rgorosti.local
+        - CASSANDRA_SEEDS=CompuAndre.local:7001,CompuAndre.local:7002,CompuAndre.local:7003
         - CASSANDRA_LISTEN_ADDRESS=auto
         - CASSANDRA_RPC_ADDRESS=0.0.0.0
         - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
@@ -70,18 +70,18 @@ services:
         - CASSANDRA_STORAGE_PORT=7002
         - CASSANDRA_SSL_STORAGE_PORT=7502
         - JVM_OPTS=-Xms256M -Xmx768M -Dcassandra.native_transport_port=9042 -Dcassandra.storage_port=7002
-            -Dcassandra.ssl_storage_port=7502 -Dcassandra.broadcast_rpc_address=cassandra-node-2.rgorosti.vpn.itam.mx
-            -Dcassandra.broadcast_address=cassandra-node-2.rgorosti.vpn.itam.mx -Dcom.sun.management.jmxremote.authenticate=false
+            -Dcassandra.ssl_storage_port=7502 -Dcassandra.broadcast_rpc_address=CompuAndre.local
+            -Dcassandra.broadcast_address=CompuAndre.local -Dcom.sun.management.jmxremote.authenticate=false
             -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.jmx.remote.port=7202
-        - CASSANDRA_BROADCAST_RPC_ADDRESS=10.15.20.18
-        - CASSANDRA_BROADCAST_ADDRESS=10.15.20.18
+        - CASSANDRA_BROADCAST_RPC_ADDRESS=CompuAndre.local
+        - CASSANDRA_BROADCAST_ADDRESS=CompuAndre.local
         - LOCAL_JMX=no
         volumes:
-        - .\mount\cassandra-node-2:/var/lib/cassandra
-        - .\mount\cassandra-node-2\certs:/etc/cassandra/certs
-        - .\mount\cassandra-node-2\cassandra.yaml:/etc/cassandra/cassandra.yaml
-        - .\mount\cassandra-node-2\cassandra-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties
-        - .\mount\jmxremote.password:/etc/cassandra/jmxremote.password
+        - ./mount/cassandra-node-2:/var/lib/cassandra
+        - ./mount/cassandra-node-2/certs:/etc/cassandra/certs
+        - ./mount/cassandra-node-2/cassandra.yaml:/etc/cassandra/cassandra.yaml
+        - ./mount/cassandra-node-2/cassandra-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties
+        - ./mount/jmxremote.password:/etc/cassandra/jmxremote.password
         networks:
         - cassandra-cluster
         ports:
@@ -116,8 +116,8 @@ services:
         - CASSANDRA_USER=cassandra
         - MAX_HEAP_SIZE=768M
         - HEAP_NEWSIZE=256M
-        - CASSANDRA_CLUSTER_NAME=cassandra-cluster.rgorosti.vpn.itam.mx
-        - CASSANDRA_SEEDS=10.15.20.18:7001,10.15.20.18:7002,10.15.20.18:7003
+        - CASSANDRA_CLUSTER_NAME=cassandra-cluster.rgorosti.local
+        - CASSANDRA_SEEDS=CompuAndre.local:7001,CompuAndre.local:7002,CompuAndre.local:7003
         - CASSANDRA_LISTEN_ADDRESS=auto
         - CASSANDRA_RPC_ADDRESS=0.0.0.0
         - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
@@ -125,18 +125,18 @@ services:
         - CASSANDRA_STORAGE_PORT=7003
         - CASSANDRA_SSL_STORAGE_PORT=7503
         - JVM_OPTS=-Xms256M -Xmx768M -Dcassandra.native_transport_port=9043 -Dcassandra.storage_port=7003
-            -Dcassandra.ssl_storage_port=7503 -Dcassandra.broadcast_rpc_address=cassandra-node-3.rgorosti.vpn.itam.mx
-            -Dcassandra.broadcast_address=cassandra-node-3.rgorosti.vpn.itam.mx -Dcom.sun.management.jmxremote.authenticate=false
+            -Dcassandra.ssl_storage_port=7503 -Dcassandra.broadcast_rpc_address=CompuAndre.local
+            -Dcassandra.broadcast_address=CompuAndre.local -Dcom.sun.management.jmxremote.authenticate=false
             -Dcom.sun.management.jmxremote.ssl=false -Dcassandra.jmx.remote.port=7203
-        - CASSANDRA_BROADCAST_RPC_ADDRESS=10.15.20.18
-        - CASSANDRA_BROADCAST_ADDRESS=10.15.20.18
+        - CASSANDRA_BROADCAST_RPC_ADDRESS=CompuAndre.local
+        - CASSANDRA_BROADCAST_ADDRESS=CompuAndre.local
         - LOCAL_JMX=no
         volumes:
-        - .\mount\cassandra-node-3:/var/lib/cassandra
-        - .\mount\cassandra-node-3\certs:/etc/cassandra/certs
-        - .\mount\cassandra-node-3\cassandra.yaml:/etc/cassandra/cassandra.yaml
-        - .\mount\cassandra-node-3\cassandra-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties
-        - .\mount\jmxremote.password:/etc/cassandra/jmxremote.password
+        - ./mount/cassandra-node-3:/var/lib/cassandra
+        - ./mount/cassandra-node-3/certs:/etc/cassandra/certs
+        - ./mount/cassandra-node-3/cassandra.yaml:/etc/cassandra/cassandra.yaml
+        - ./mount/cassandra-node-3/cassandra-rackdc.properties:/etc/cassandra/cassandra-rackdc.properties
+        - ./mount/jmxremote.password:/etc/cassandra/jmxremote.password
         networks:
         - cassandra-cluster
         ports:

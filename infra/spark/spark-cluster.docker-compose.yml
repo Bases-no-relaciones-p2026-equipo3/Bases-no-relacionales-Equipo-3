@@ -38,8 +38,8 @@ services:
         - 6077:6077
         extra_hosts:
         - host.docker.internal:host-gateway
-        dns: &id001
-        - 10.15.30.1
+#        dns: &id001
+#        - 10.15.30.1
         deploy:
             resources:
                 limits:

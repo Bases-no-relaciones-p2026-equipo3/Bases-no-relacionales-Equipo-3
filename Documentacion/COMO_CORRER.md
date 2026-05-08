@@ -81,7 +81,24 @@ cp env.example .env
 copy env.example .env
 ```
 
-El archivo `.env` **nunca se sube al repositorio** (está en `.gitignore`). Cada integrante del equipo configura su propio `.env` según su rol. Consulta `Documentacion/INSTRUCTIVO_DESPLIEGUE.md` para los valores correctos por rol e IP WireGuard.
+El archivo `.env` **nunca se sube al repositorio** (está en `.gitignore`). Cada integrante del equipo configura su propio `.env` según su rol.
+
+### 💡 Configuración de Red Automática (mDNS)
+
+Para evitar reconfigurar IPs cada vez que cambias de red (ej. de casa al ITAM), el proyecto usa nombres de host `.local`.
+
+1. **Obtén tu nombre de host**:
+   - En **macOS / Linux**: corre `hostname` en la terminal.
+   - En **Windows**: corre `hostname` en PowerShell.
+   *Ejemplo: si tu comando devuelve `Laptop-Regina`, tu dirección es `Laptop-Regina.local`.*
+
+2. **Configura el `.env`**:
+   Reemplaza los valores con los nombres `.local` de tus compañeros:
+   ```python
+   CASSANDRA_HOST = CompuAndre.local
+   NEO4J_HOST     = CompuAndre.local
+   SPARK_MASTER   = spark://Laptop-Regina.local:6077
+   ```
 
 ---
 
