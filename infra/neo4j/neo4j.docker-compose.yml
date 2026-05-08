@@ -4,10 +4,10 @@ services:
         image: neo4j:ubi9
         container_name: neo4j-instance
         volumes:
-        - .\mount\data:/data
-        - .\mount\neo4j\logs:/logs
-        - .\mount\neo4j\import:/var/lib/neo4j/import
-        - .\mount\plugins:/plugins
+        - ./mount/data:/data
+        - ./mount/neo4j/logs:/logs
+        - ./mount/neo4j/import:/var/lib/neo4j/import
+        - ./mount/plugins:/plugins
         environment:
             NEO4J_AUTH: neo4j/password
             NEO4J_server_memory_heap_initial__size: 512m
